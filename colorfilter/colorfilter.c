@@ -47,9 +47,9 @@ void taskC(uint8_t *in, uint8_t *out, int32_t width, int32_t height)
 
 	for (int round = 0; round < rounds; round++)
 	{
-		/* TODO: Blur the image multiple rounds */
-		#pragma omp parallel
+#pragma omp parallel for
 		for (int y = 0; y < height; y++)
+#pragma omp parallel for
 			for (int x = 0; x < width; x++)
 			{
 				int accR = 0.;
@@ -60,9 +60,9 @@ void taskC(uint8_t *in, uint8_t *out, int32_t width, int32_t height)
 				accG += ((y - 1 < 0) || x - 1 < 0) ? 0 : pin[(y - 1) * width + x - 1].g;
 				accB += ((y - 1 < 0) || x - 1 < 0) ? 0 : pin[(y - 1) * width + x - 1].b;
 
-				accR += ((y - 1 < 0)) ? 0 : pin[(y - 1) * width + x].r;
-				accG += ((y - 1 < 0)) ? 0 : pin[(y - 1) * width + x].g;
-				accB += ((y - 1 < 0)) ? 0 : pin[(y - 1) * width + x].b;
+				accR += (y - 1 < 0) ? 0 : pin[(y - 1) * width + x].r;
+				accG += (y - 1 < 0) ? 0 : pin[(y - 1) * width + x].g;
+				accB += (y - 1 < 0) ? 0 : pin[(y - 1) * width + x].b;
 
 				accR += ((y - 1 < 0) || x + 1 > width) ? 0 : pin[(y - 1) * width + x + 1].r;
 				accG += ((y - 1 < 0) || x + 1 > width) ? 0 : pin[(y - 1) * width + x + 1].g;
@@ -80,7 +80,6 @@ void taskC(uint8_t *in, uint8_t *out, int32_t width, int32_t height)
 				accG += (x + 1 > width) ? 0 : pin[y * width + x + 1].g;
 				accB += (x + 1 > width) ? 0 : pin[y * width + x + 1].b;
 
-
 				accR += ((y + 1 > height) || x - 1 < 0) ? 0 : pin[(y + 1) * width + x - 1].r;
 				accG += ((y + 1 > height) || x - 1 < 0) ? 0 : pin[(y + 1) * width + x - 1].g;
 				accB += ((y + 1 > height) || x - 1 < 0) ? 0 : pin[(y + 1) * width + x - 1].b;
@@ -93,12 +92,12 @@ void taskC(uint8_t *in, uint8_t *out, int32_t width, int32_t height)
 				accG += ((y + 1 > height) || x + 1 > width) ? 0 : pin[(y + 1) * width + x + 1].g;
 				accB += ((y + 1 > height) || x + 1 > width) ? 0 : pin[(y + 1) * width + x + 1].b;
 
-				pout[y * width + x].r = (uint8_t)(accR/9);
-				pout[y * width + x].g = (uint8_t)(accG/9);
-				pout[y * width + x].b = (uint8_t)(accB/9);
+				pout[y * width + x].r = (uint8_t)(accR / 9);
+				pout[y * width + x].g = (uint8_t)(accG / 9);
+				pout[y * width + x].b = (uint8_t)(accB / 9);
 				pout[y * width + x].a = pin[y * width + x].a;
 			}
-		#pragma omp barrier
+#pragma omp barrier
 		uint8_t *tmp = in;
 		in = out;
 		out = tmp;

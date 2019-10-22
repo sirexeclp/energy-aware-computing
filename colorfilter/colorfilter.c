@@ -49,7 +49,6 @@ void taskC(uint8_t *in, uint8_t *out, int32_t width, int32_t height)
 	{
 #pragma omp parallel for
 		for (int y = 0; y < height; y++)
-#pragma omp parallel for
 			for (int x = 0; x < width; x++)
 			{
 				int accR = 0.;

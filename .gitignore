@@ -1,2 +1,11 @@
 *.bmp
 colorfilter
+*.png
+*.jpg
+dft
+fft
+*.ipynb
+*.pdf
+simpleCUFFT/simpleCUFFT
+*.out
+settings.json

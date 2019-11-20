@@ -33,6 +33,19 @@ std::vector<std::complex<double>> dft(std::vector<double> signal)
     }
     return fourier_transform;
 }
+std::vector<double> dift(std::vector<std::complex<double>> fourier_transform)
+{
+    std::vector<double> signal(fourier_transform.size());
+    #pragma omp parallel for
+    for(int index=0; index<fourier_transform.size(); ++index) {
+        std::complex<double> sum = 0;
+        for(int k=0; k<fourier_transform.size(); ++k) {
+            sum += fourier_transform[k] * std::exp(-2*M_PI*1i*(double)k*(double)index/(double)fourier_transform.size());
+        }
+        signal.at(index) = sum.real()/fourier_transform.size();
+    }
+    return signal;
+}
 
 std::vector<double> spectral_power(std::vector<std::complex<double>> fourier_transform)
 {
@@ -46,7 +59,7 @@ std::vector<double> spectral_power(std::vector<std::complex<double>> fourier_tra
 
 int main() {
     // Prepare data.
-    int n = 50000;
+    int n = 500;
     std::vector<double> x(n), y(n);
     std::vector<std::complex<double>> F(n);
     #pragma omp parallel for
@@ -56,12 +69,15 @@ int main() {
     }
 
     auto fourier_transform = dft(y);
+    auto inverse_f = dift(fourier_transform);
 
         // Set the size of output image to 1200x780 pixels
     // plt::figure_size(1200, 780);
     // Plot line from given x and y data. Color is selected automatically.
-
-    plt::plot(x, spectral_power(fourier_transform));
-    plt::save("test.png");
-    // plt::show();
+   plt::plot(x,y,"bx");
+   plt::plot(x,inverse_f);
+   
+    // plt::plot(x, spectral_power(fourier_transform));
+    // plt::save("test.png");
+     plt::show();
 }

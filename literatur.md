@@ -26,3 +26,22 @@ Please keep in mind that this code is just to check the performance and accuracy
 - FFT vs. convolution:  https://stackoverflow.com/a/18406854/7997186 und https://stackoverflow.com/a/18385421/7997186 
 
 Zum vergleich der Filter den ich bräuchte hat 9 koeffizienten jweils in zähler und nenner.
+
+https://www.sciencedirect.com/science/article/pii/B9780125921015500075
+https://pdfs.semanticscholar.org/adaf/b3c81cdabc746439ce86b4346074b194d4a6.pdf
+http://www.fftw.org/benchfft/ffts.html
+https://www.sciencedirect.com/science/article/pii/S0167819184904137?via%3Dihub
+http://www.fftw.org/pldi99.pdf
+https://cnx.org/contents/4kChocHM@6/Efficient-FFT-Algorithm-and-Programming-Tricks
+http://www.dsp-book.narod.ru/DSPMW/07.PDF
+
+
+TODO: split radix
+TODO: fix glitches in current fft-implementation
+better bit reversal
+std::complex vs c-style
+std::vector vs. double
+double vs. float
+complex vs. real input (should be factor 2)
+radix/base 4/8 << simd, loop unroling?
+loop unroling in general

@@ -1,3 +1,4 @@
+*.csv
 fftw
 *.bmp
 colorfilter

@@ -1,3 +1,5 @@
+*.ipynb_checkpoints
+*.npy
 *.csv
 fftw
 *.bmp
@@ -6,6 +8,7 @@ colorfilter
 *.jpg
 dft
 fft
+!fft/
 *.ipynb
 *.pdf
 simpleCUFFT/simpleCUFFT

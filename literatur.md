@@ -45,3 +45,74 @@ double vs. float
 complex vs. real input (should be factor 2)
 radix/base 4/8 << simd, loop unroling?
 loop unroling in general
+
+phasen (warmup/run) erkennen
+ernergie states 
+cores abschalten ?
+
+MAX-Q 
+
+https://images.nvidia.com/content/tesla/pdf/Tesla-V100-PCIe-Product-Brief.pdf
+https://blogs.nvidia.com/blog/2018/12/14/what-is-max-q/
+
+Persistence Mode
+       A  flag that indicates whether persistence mode is enabled for the GPU.
+       Value is either "Enabled" or  "Disabled".   When  persistence  mode  is
+       enabled  the  NVIDIA driver remains loaded even when no active clients,
+       such as X11 or nvidia-smi,  exist.   This  minimizes  the  driver  load
+       latency  associated with running dependent apps, such as CUDA programs.
+       For all CUDA-capable products.  Linux only.
+
+   Accounting Mode
+       A flag that indicates whether accounting mode is enabled  for  the  GPU
+       Value  is  either  When accounting is enabled statistics are calculated
+       for each compute process running on the GPU.  Statistics can be queried
+       during  the lifetime or after termination of the process. The execution
+       time of process is reported as 0 while the process is in running  state
+       and  updated to actual execution time after the process has terminated.
+       See --help-query-accounted-apps for more info.
+
+
+       List of valid properties to query for the switch "--query-accounted-apps=":
+
+Section about Accounted Graphics/Compute Processes properties
+List of accounted processes having had a graphics/compute context on the device.
+
+Format options and one or more properties to be queried need to be provided as comma separated values for this switch.
+For example:
+nvidia-smi --query-accounted-apps=gpu_name,pid,time,gpu_util,mem_util,max_memory_usage --format=csv
+
+List of properties that can be queried are:
+
+"timestamp"
+The timestamp of where the query was made in format "YYYY/MM/DD HH:MM:SS.msec".
+
+"gpu_name"
+The official product name of the GPU. This is an alphanumeric string. For all products.
+
+"gpu_bus_id"
+PCI bus id as "domain:bus:device.function", in hex.
+
+"gpu_serial"
+This number matches the serial number physically printed on each board. It is a globally unique immutable alphanumeric value.
+
+"gpu_uuid"
+This value is the globally unique immutable alphanumeric identifier of the GPU. It does not correspond to any physical label on the board.
+
+"vgpu_instance"
+vGPU instance
+
+"pid"
+Process ID of the compute application
+
+"gpu_utilization" or "gpu_util"
+GPU Utilization
+
+"mem_utilization" or "mem_util"
+Percentage of GPU memory utilized on the device by the context.
+
+"max_memory_usage"
+Maximum amount memory used on the device by the context.
+
+"time"
+Amount of time in ms during which the compute context was active.

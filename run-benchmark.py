@@ -83,17 +83,35 @@ utilization.memory:
 
     def get_power_limit_constraints(self):
         return self.power_limit_constraints
+    
+    def get_current_power_limit(self):
+        return smi.nvmlDeviceGetPowerManagementLimit(self.handle)
 
     def set_power_limit(self, limit):
         if self.power_limit_constraints is None:
             raise smi.NVMLError_NotSupported()
         if limit < self.power_limit_constraints[0]:
-            raise ValueError(f"Given power limit is to low. Limit must be in range of {self.power_limit_constraints} (inclusive)")
-        if limit > self.power_limit_constraints[0]:
-            raise ValueError(f"Given power limit is to high. Limit must be in range of {self.power_limit_constraints} (inclusive)")
+            raise ValueError(f"Given power limit is to low. Limit must be in range of {self.power_limit_constraints} (inclusive), but was {limit}!")
+        if limit > self.power_limit_constraints[1]:
+            raise ValueError(f"Given power limit is to high. Limit must be in range of {self.power_limit_constraints} (inclusive), but was {limit}!")
         
         smi.nvmlDeviceSetPowerManagementLimit(self.handle, limit)
+        return self.get_current_power_limit() == limit
     
+    def reset_power_limit(self):
+        if self.power_limit_constraints is None:
+            return True
+        
+        _, p_max = self.power_limit_constraints
+        try:
+            if p_max == self.get_current_power_limit():
+                return True
+            else:
+                return self.set_power_limit(p_max)
+        except Exception as e:
+            return False
+        
+
     def get_stats(self):
         util = self.get_utilization()
         data = {
@@ -144,18 +162,38 @@ class SMIWrapper():
         end = time.time()
         print (len(data)/(end-start))
 
+    def set_all_powerlimit(self, limit):
+        result = True
+        for gpu in self.gpus:
+            result &= gpu.set_power_limit(limit)
+        return result
+
+    def reset_all_powerlimit(self):
+        result = True
+        for gpu in self.gpus:
+             result &= gpu.reset_power_limit()
+        return result
 
 
 
 
 
-def run_experiment(data_path, args ,baseline = 0):
+def run_experiment(data_path, args ,baseline = 0, power_limit=None):
     gpu_data = []
     
     data_path.mkdir(parents=True)
     gpu_data_path = data_path / "gpu-power.csv"
 
     with SMIWrapper() as sw:
+        if power_limit is not None:
+            success = sw.set_all_powerlimit(power_limit*1000)#convert to mW
+            print(f"[{'Success' if success else 'Failed'}] set power-limit to {power_limit}")
+        else:
+            success = sw.reset_all_powerlimit()
+            print(f"[{'Success' if success else 'Failed'}] reset power-limit to default (max)")
+        
+        assert success, "Failed setting/resetting power-limit, abborting experiment!"
+        
         if baseline:
             sw.get_baseline(baseline, gpu_data)
        
@@ -182,10 +220,64 @@ def run_batch_experiment():
                 description = f"{b}batch{d}denseX{c}"
                 print(f"running {description}")
                 data_root = Path("power-data")
-                data_path = data_root / Path(f"{description}-{str(datetime.now())}")
+                data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
                 args = ["python3","mnist_cnn.py",str(c), str(d), str(b) , str(data_path)]
                 run_experiment(data_path, args)
 
 # %%
-run_batch_experiment()
+#run_batch_experiment()
 
+def run_power_cap_experiment():
+    import random
+    power_caps = [150, 200, 250, 300] #Watts
+    random.shuffle(power_caps)
+    epochs = 20#5
+    for p in power_caps:
+        description = f"powercap{p}"
+        print(f"running {description}")
+        data_root = Path("power-data")
+        data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
+        args = ["/bin/bash","./train_cinc17.sh", "-n", str(epochs), "-p", str(data_path)]
+        
+        run_experiment(data_path, args,baseline=5,power_limit=p)
+        time.sleep(10)
+
+def run_power_cap_experiment_fine():
+    import random
+    power_caps = list(range(150,300,25))#[150, 200, 250, 300] #Watts
+    random.shuffle(power_caps)
+    epochs = 5
+    for p in power_caps:
+        description = f"powercap{p}"
+        print(f"running {description}")
+        data_root = Path("power-data-fine")
+        data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
+        args = ["/bin/bash","./train_cinc17.sh", "-n", str(epochs), "-p", str(data_path)]
+        
+        run_experiment(data_path, args,baseline=5,power_limit=p)
+        time.sleep(10)
+
+def run_batch_experiment2():
+    dense_count = [8, 16, 32]
+    dense_sizes = [128, 256, 512]
+    batch_sizes = [64, 128, 256, 512]
+    for c in dense_count:
+        for d in dense_sizes:
+            for b in batch_sizes:
+                description = f"{b}batch{d}denseX{c}"
+                print(f"running {description}")
+                data_root = Path("power-data")
+                data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
+                args = ["python3","mnist_cnn.py",str(c), str(d), str(b) , str(data_path)]
+                run_experiment(data_path, args)
+
+
+if __name__ == "__main__":
+    run_power_cap_experiment()
+    time.sleep(120)
+    run_power_cap_experiment_fine()
+
+
+    with SMIWrapper() as sw:
+        success = sw.reset_all_powerlimit()
+        print(f"[{'Success' if success else 'Failed'}] reset power-limit to default (max)")

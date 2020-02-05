@@ -14,11 +14,27 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D
 from tensorflow.keras import backend as K
 from pathlib import  Path
 import sys
-from datetime import datetime
+import argparse
 
-batch_size = int(sys.argv[-2])
-dense_size = int(sys.argv[-3])
-dense_count = int(sys.argv[-4])
+parser = argparse.ArgumentParser(description='Simple parameterized Deep Neural Network.')
+
+requiredNamed = parser.add_argument_group('required named arguments')
+requiredNamed.add_argument('-b', '--batch-size', help='Batch size',type=int, required=True)
+requiredNamed.add_argument('-n', '--neurons', help='Number of neurons per layer',type=int, required=True)
+requiredNamed.add_argument('-c', '--dense-count', help='Number of dense layers',type=int, required=True)
+
+
+args = parser.parse_args()
+
+
+batch_size = args.batch_size
+dense_size = args.neurons
+dense_count = args.dense_count
+
+print(f"batch-size: {batch_size}")
+print(f"neurons: {dense_size}")
+print(f"dense_count: {dense_count}")
+
 num_classes = 10
 epochs = 10
 

@@ -7,7 +7,7 @@ import atexit
 
 
 def log_event(name, index=""):
-    #print(f"[Info] {name} {index}")
+    print(f"[Info] {name} {index}")
     timestamp_log.write(f"{str(datetime.now())},{name},{index}\n")
 
 
@@ -23,21 +23,22 @@ def my_fit(*args, **kwargs):
     kwargs["callbacks"] = callbacks
     return tensorflow.keras.models.Sequential._fit(*args, **kwargs)
 
+def patch(data_root):
+    global logger, timestamp_log
+    data_root = Path(data_root)
+    timestamp_log_path = data_root / "timestamps.csv"
+    timestamp_log = open(timestamp_log_path , "w", buffering=1)
+    timestamp_log.write(f"timestamp,event,data\n")
 
-data_root = Path("/tmp")
-timestamp_log_path = data_root / "timestamps.csv"
-timestamp_log = open(timestamp_log_path , "w", buffering=1)
-timestamp_log.write(f"timestamp,event,data\n")
+    logger = keras.callbacks.LambdaCallback(
+                on_epoch_begin=lambda epoch, logs: log_event("epoch_begin", epoch)
+                ,on_epoch_end=lambda epoch, logs: log_event("epoch_end", epoch)
+                ,on_train_begin=lambda logs: log_event("train_begin")
+                ,on_train_end=lambda logs: log_event("train_end")
+                #,on_batch_begin=lambda batch, logs: log_event("batch_begin", batch)
+                )
 
-logger = keras.callbacks.LambdaCallback(
-            on_epoch_begin=lambda epoch, logs: log_event("epoch_begin", epoch)
-            ,on_epoch_end=lambda epoch, logs: log_event("epoch_end", epoch)
-            ,on_train_begin=lambda logs: log_event("train_begin")
-            ,on_train_end=lambda logs: log_event("train_end")
-            #,on_batch_begin=lambda batch, logs: log_event("batch_begin", batch)
-            )
+    tensorflow.keras.models.Sequential._fit = tensorflow.keras.models.Sequential.fit
+    tensorflow.keras.models.Sequential.fit = my_fit
 
-tensorflow.keras.models.Sequential._fit = tensorflow.keras.models.Sequential.fit
-tensorflow.keras.models.Sequential.fit = my_fit
-
-log_event("experiment_begin")
+    log_event("experiment_begin")

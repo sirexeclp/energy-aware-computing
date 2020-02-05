@@ -15,11 +15,6 @@ from tensorflow.keras import backend as K
 from pathlib import  Path
 import sys
 from datetime import datetime
-import monkey_patch
-
-data_root = Path(sys.argv[-1])
-timestamp_log_path = data_root / "timestamps.csv"
-
 
 batch_size = int(sys.argv[-2])
 dense_size = int(sys.argv[-3])
@@ -29,27 +24,6 @@ epochs = 10
 
 # input image dimensions
 img_rows, img_cols = 28, 28
-
-# timestamp logging shit
-timestamp_log = open(timestamp_log_path ,"w",buffering=1)
-timestamp_log.write(f"timestamp,event,data\n")
-
-def train_cb(logs):
-    #print("log begin")
-    timestamp_log.write(f"{str(datetime.now())},train_begin,\n")
-
-def epoch_cb(epoch,logs):
-    #print("log begin_epoch")
-    timestamp_log.write(f"{str(datetime.now())},epoch_begin,{epoch}\n")
-
-logger = keras.callbacks.LambdaCallback(
-            on_epoch_begin=epoch_cb ,
-            on_epoch_end=lambda epoch, logs: timestamp_log.write(f"{str(datetime.now())},epoch_end,{epoch}\n"),
-            on_train_begin=train_cb,
-            on_train_end=lambda logs: timestamp_log.write(f"{str(datetime.now())},train_end,\n"),
-            on_batch_begin=lambda epoch, logs: timestamp_log.write(f"{str(datetime.now())},batch_begin,{epoch}\n")   )
-
-
 
 # the data, split between train and test sets
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -98,7 +72,6 @@ model.fit(x_train, y_train,
           epochs=epochs,
           verbose=1,
           validation_data=(x_test, y_test)
-          #,callbacks=[logger]
           )
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])

@@ -1,3 +1,6 @@
+import warnings
+#with warnings.catch_warnings():
+warnings.filterwarnings('ignore')
 import tensorflow
 import tensorflow.keras as keras
 from datetime import datetime

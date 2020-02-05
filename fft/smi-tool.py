@@ -38,13 +38,14 @@ from IPython.display import HTML
 # Parameters
 x_len = 200         # Number of points to display
 y_range = [10, 40]  # Range of possible Y values to display
+temp_c = 0
 
 # Create figure for plotting
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
 xs = list(range(0, 200))
 ys = [0] * x_len
-#ax.set_ylim(y_range)
+ax.set_ylim([0,10000000])
 
 
 # Create a blank line. We will update the line in animate
@@ -63,12 +64,12 @@ def get_data():
         
 # This function is called periodically from FuncAnimation
 def animate(i, ys):
-
+    #global temp_c
     # Read temperature (Celsius) from TMP102
     temp_c = nvidia_smi.nvmlDeviceGetPowerUsage(handle)/1000
 
     # Add y to list
-    ys.append(temp_c)
+    ys.append(temp_c+ys[-1])
 
     # Limit y list to set number of items
     ys = ys[-x_len:]

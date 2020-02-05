@@ -36,6 +36,7 @@ std::vector<std::complex<double>> sort_bit_reversed(std::vector<std::complex<dou
     //bit-reversed ordering
     std::vector<std::complex<double>> result(signal.size());
     const int shift_factor = 32 - std::log2(signal.size());
+    #pragma omp parallel for
     for (int i = 0; i < signal.size(); i++)
     {
         int j = reverseBits(i) >> shift_factor;

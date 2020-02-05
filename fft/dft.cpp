@@ -10,6 +10,10 @@
 #include"../cnpy/cnpy.h"
 namespace plt = matplotlibcpp;
 using namespace std::complex_literals;
+
+#define INPUT_FILE "test_data.npy"
+#define OUTPUT_FILE "output.npy"
+
 // std::vector<double> range(begin)
 
 /* 
@@ -78,7 +82,7 @@ std::vector<std::complex<double>> fft(std::vector<std::complex<double>> signal, 
         const int m_i = m;
         std::complex<double> wm = std::exp(-2 * M_PI * 1i / m);
 
-
+        #pragma omp parallel for
         for (int abschnitt = 0; abschnitt < signal.size(); abschnitt += m_i)
         {
             std::complex<double> w = 1.;
@@ -186,7 +190,7 @@ int main(int argc, char *argv[])
     std::vector<double> x(n);
     std::vector<std::complex<double>> y(n), F;
 
-    if (input_format == "none")
+    if (input_format == "none") //generate simple sin test signal as input
     {
     #pragma omp parallel for
         for (int i = 0; i < n; ++i)
@@ -205,7 +209,7 @@ int main(int argc, char *argv[])
         }
     }else if(input_format=="file")
     {
-        cnpy::NpyArray input_data = cnpy::npy_load("test_data.npy");
+        cnpy::NpyArray input_data = cnpy::npy_load(INPUT_FILE);
         auto begin = input_data.data<std::complex<double>>();
         auto size = input_data.num_bytes()/(input_data.word_size);
         std::cerr <<"word_size:" <<input_data.word_size << std::endl <<"input length:"<< size<<std::endl;
@@ -276,7 +280,7 @@ int main(int argc, char *argv[])
         plt::save("test.png");
     }else if (output_format == "file")
     {
-        std::string filename = "output.npy";
+        std::string filename = OUTPUT_FILE;
         cnpy::npy_save(filename, F.data(),{F.size()},"w");
     }
 }

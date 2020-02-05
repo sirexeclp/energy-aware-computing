@@ -15,13 +15,13 @@ def set_boxplot_legend(legend):
 config = {
     "name": "ffts_bench_small_n"
     ,"runs":[
-        # {"args":["../fft/dft", "dft" ,"10"]},
-        {"args":["../fft/dft", "fft" ,"17"]}
-        ,{"args":["../fft/dft", "fftw" ,"17"]}
+        # {"args":["../fft/dft", "dft" ,"10","none","none"]},
+        {"args":["../fft/dft", "fft" ,"17","file","file"]}
+        ,{"args":["../fft/dft", "fftw" ,"17","file","file"]}
     ]
 }
 
-reppetitions = 10
+reppetitions = 20
 warmup = 2
 
 runs = []
@@ -30,7 +30,8 @@ for run in config["runs"]:
     print(run["args"])
     for i in tqdm(range(reppetitions+warmup)):
         start = time.time()
-        subprocess.run(run["args"], stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        tmp = subprocess.run(run["args"], stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,cwd="../fft")
+        tqdm.write(tmp.stderr.decode("UTF-8"))
         end = time.time()
         timings.append(end-start)
     runs.append(timings)

@@ -1,0 +1,5 @@
+nvidia-ml-py3
+pandas
+numpy
+seaborn
+matplotlib

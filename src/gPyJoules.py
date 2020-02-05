@@ -5,8 +5,11 @@ import sys
 parser = argparse.ArgumentParser(description='Monkey-Patch Keras to record energy measurements via nvidia-smi.')
 
 # Optional argument
-parser.add_argument("-d","--directory",type=str, default=None,
+parser.add_argument("-w","--working-directory",type=str, default=None,
                     help='Change to this directory before running the module')
+
+parser.add_argument("-d", "--data-directory", type=str, required=True
+                ,help="Data directory.")           
 
 parser.add_argument("module_name", type=str, help="Module to execute.")
 
@@ -21,10 +24,11 @@ new_args += args.other
 sys.argv=new_args
 
 # chdir if requested
-if args.directory is not None:
-    print(f"chdir to {args.directory}")
-    os.chdir(args.directory)
+if args.working_directory is not None:
+    print(f"chdir to {args.working_directory}")
+    os.chdir(args.working_directory)
 
 # patch keras and run module 
 import patch_keras
+patch_keras.patch(args.data_directory)
 runpy.run_module(args.module_name)

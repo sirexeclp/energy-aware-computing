@@ -18,6 +18,7 @@ stop_event = Event()
 data_event = Event()
 data_queue = Queue()
 
+
 def log_event(name, index=""):
     #print(f"[Info] {name} {index}")
     tmp = {
@@ -27,7 +28,7 @@ def log_event(name, index=""):
     }
     timestamp_log.append(tmp)
 
-    if name == "epoch_end" and index > 0:
+    if name == "epoch_end" and index > 0 and enable_energy_prediction:
         data_event.set()
         while data_queue.empty():
             sleep(0.1)
@@ -51,7 +52,7 @@ def set_log_path(new_path):
 
 def collect_power_data(data_path, done, get_data, data):
     gpu_data = []
-    print("started subprocess")
+    
     data_path = Path(data_path)
     data_path.mkdir(parents=True, exist_ok=True)
     gpu_data_path = data_path / "gpu-power.csv"
@@ -70,12 +71,13 @@ def collect_power_data(data_path, done, get_data, data):
 
 
 
-def patch(data_root):
-    global timestamp_log_path, power_process
+def patch(data_root, enable_energy):
+    global timestamp_log_path, power_process, enable_energy_prediction
+    enable_energy_prediction = enable_energy
     set_log_path(data_root)
     #timestamp_log = open(timestamp_log_path , "w", buffering=1)
     #timestamp_log.write(f"timestamp,event,data\n")
-
+    
     power_process = Process(target=collect_power_data,args=[data_root, stop_event, data_event, data_queue])
     power_process.start()
 

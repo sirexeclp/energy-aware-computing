@@ -9,7 +9,10 @@ parser.add_argument("-w","--working-directory",type=str, default=None,
                     help='Change to this directory before running the module')
 
 parser.add_argument("-d", "--data-directory", type=str, required=True
-                ,help="Data directory.")           
+                ,help="Data directory.")    
+
+parser.add_argument("-e", "--predict-energy", action='store_true'
+                    ,help='Enable live energy prediction')       
 
 parser.add_argument("module_name", type=str, help="Module to execute.")
 
@@ -30,5 +33,5 @@ if args.working_directory is not None:
 
 # patch keras and run module 
 import patch_keras
-patch_keras.patch(args.data_directory)
+patch_keras.patch(args.data_directory, args.predict_energy)
 runpy.run_module(args.module_name)

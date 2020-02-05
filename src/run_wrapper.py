@@ -26,5 +26,5 @@ if args.directory is not None:
     os.chdir(args.directory)
 
 # patch keras and run module 
-import monkey_patch
+import patch_keras
 runpy.run_module(args.module_name)

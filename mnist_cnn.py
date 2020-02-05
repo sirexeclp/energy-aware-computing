@@ -15,6 +15,7 @@ from tensorflow.keras import backend as K
 from pathlib import  Path
 import sys
 from datetime import datetime
+import monkey_patch
 
 data_root = Path(sys.argv[-1])
 timestamp_log_path = data_root / "timestamps.csv"
@@ -97,7 +98,8 @@ model.fit(x_train, y_train,
           epochs=epochs,
           verbose=1,
           validation_data=(x_test, y_test)
-          ,callbacks=[logger])
+          #,callbacks=[logger]
+          )
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])

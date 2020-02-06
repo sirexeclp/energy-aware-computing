@@ -1,21 +1,21 @@
 from __future__ import print_function
-import keras
-from keras.layers import Dense, Conv2D, BatchNormalization, Activation
-from keras.layers import AveragePooling2D, Input, Flatten
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras.callbacks import ReduceLROnPlateau
-from keras.preprocessing.image import ImageDataGenerator
-from keras.regularizers import l2
-from keras import backend as K
-from keras.models import Model
-from keras.datasets import cifar10
+import tensorflow.keras as keras
+from tensorflow.keras.layers import Dense, Conv2D, BatchNormalization, Activation
+from tensorflow.keras.layers import AveragePooling2D, Input, Flatten
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
+from tensorflow.keras.callbacks import ReduceLROnPlateau
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import Model
+from tensorflow.keras.datasets import cifar10
 import numpy as np
 import os
 
 # Training parameters
 batch_size = 32  # orig paper trained all networks with batch_size=128
-epochs = 200
+epochs = 20
 data_augmentation = True
 num_classes = 10
 
@@ -323,7 +323,7 @@ else:
     model = resnet_v1(input_shape=input_shape, depth=depth)
 
 model.compile(loss='categorical_crossentropy',
-              optimizer=Adam(learning_rate=lr_schedule(0)),
+              optimizer=Adam(lr=lr_schedule(0)),
               metrics=['accuracy'])
 model.summary()
 print(model_type)
@@ -336,10 +336,10 @@ if not os.path.isdir(save_dir):
 filepath = os.path.join(save_dir, model_name)
 
 # Prepare callbacks for model saving and for learning rate adjustment.
-checkpoint = ModelCheckpoint(filepath=filepath,
-                             monitor='val_acc',
-                             verbose=1,
-                             save_best_only=True)
+# checkpoint = ModelCheckpoint(filepath=filepath,
+#                              monitor='val_acc',
+#                              verbose=1,
+#                              save_best_only=True)
 
 lr_scheduler = LearningRateScheduler(lr_schedule)
 
@@ -348,7 +348,7 @@ lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
                                patience=5,
                                min_lr=0.5e-6)
 
-callbacks = [checkpoint, lr_reducer, lr_scheduler]
+callbacks = [lr_reducer, lr_scheduler]
 
 # Run training, with or without data augmentation.
 if not data_augmentation:
@@ -415,6 +415,6 @@ else:
                         callbacks=callbacks)
 
 # Score trained model.
-scores = model.evaluate(x_test, y_test, verbose=1)
-print('Test loss:', scores[0])
-print('Test accuracy:', scores[1])
+# scores = model.evaluate(x_test, y_test, verbose=1)
+# print('Test loss:', scores[0])
+# print('Test accuracy:', scores[1])

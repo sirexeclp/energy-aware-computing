@@ -10,8 +10,6 @@ from collections import namedtuple
 from pathlib import Path
 import pandas as pd
 from smi_wrapper import GPU, SMIWrapper, Utilization
-from asyncio.subprocess import create_subprocess_exec
-import asyncio
 from random import shuffle
 # %%
 WARMUP = 5 #warmup in seconds
@@ -27,14 +25,15 @@ def set_power_limit(power_limit):
         
         assert success, "Failed setting/resetting power-limit, abborting experiment!"
 
-async def run_experiment(data_path, working_directory, module, args ,baseline = 0, power_limit=None):
+def run_experiment(data_path, working_directory, module, args ,baseline = 0, power_limit=None):
     data_path.mkdir(parents=True)
 
     set_power_limit(power_limit)
         
-    args = ["gPyJoules.py", "-d", str(data_path.absolute()), "-w", str(working_directory), module, "--"] + args
-    p = await create_subprocess_exec("python3", *args)
-    await p.wait()
+    args = ["python3", "gPyJoules.py", "-d", str(data_path.absolute()), "-w", str(working_directory), module, "--"] + args
+    p = subprocess.Popen(args)
+    while p.poll() is None:
+        time.sleep(1)
 
 
 # %%
@@ -46,7 +45,7 @@ def run_power_cap_experiment(module, args, working_directory, power_caps, data_r
         description = description.format(p)
         print(f"[Running] {description}")
         data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
-        asyncio.run(run_experiment(data_path, str(working_directory), module, args))
+        run_experiment(data_path, str(working_directory), module, args)
         time.sleep(10)
 
 

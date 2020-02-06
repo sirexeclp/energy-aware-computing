@@ -63,9 +63,9 @@ def run_power_cap_experiment_cifar(data_root, power_caps):
     description = "powercap{}-cifar"
     run_power_cap_experiment("resnet", [], "./", power_caps, data_root, description)
 
-def run_all_power_cap_corse(data_root):
-    repititions = 10
+def run_all_power_cap_corse(data_root, repititions):
     power_caps = [150, 200, 250, 300] #Watts
+    data_root = Path(data_root)
     for i in range(repititions):
         data_path = data_root / f"run{i}"
         run_power_cap_experiment_ecg(data_path, power_caps)
@@ -124,7 +124,8 @@ def run_all_power_cap_corse(data_root):
 
 
 if __name__ == "__main__":
-    run_batch_experiment2("../testing/data")
+    
+    run_all_power_cap_corse("../data-trial", 1)
 
     with SMIWrapper() as sw:
         success = sw.reset_all_powerlimit()

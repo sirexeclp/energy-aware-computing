@@ -31,6 +31,7 @@ if args.working_directory is not None:
     print(f"chdir to {args.working_directory}")
     os.chdir(args.working_directory)
 
+os.environ["CUDA_VISIBLE_DEVICES"]="1" 
 # patch keras and run module 
 import patch_keras
 patch_keras.patch(args.data_directory, args.predict_energy)

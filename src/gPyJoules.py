@@ -38,4 +38,4 @@ if args.working_directory is not None:
     os.chdir(args.working_directory)
 
 #run module 
-runpy.run_module(args.module_name)
+runpy.run_module(args.module_name, run_name="__main__")

@@ -30,7 +30,8 @@ def run_experiment(data_path, working_directory, module, args ,baseline = 0, pow
 
     set_power_limit(power_limit)
         
-    args = ["python3", "gPyJoules.py", "-d", str(data_path.absolute()), "-w", str(working_directory), module, "--"] + args
+    args = ["python3", "-m","gPyJoules", "-d", str(data_path.absolute()), "-w", str(working_directory), module, "--"] + args
+    print(args)
     p = subprocess.Popen(args)
     while p.poll() is None:
         time.sleep(1)

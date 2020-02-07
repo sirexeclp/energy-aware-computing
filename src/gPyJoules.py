@@ -26,13 +26,16 @@ new_args = [sys.argv[0]]
 new_args += args.other
 sys.argv=new_args
 
+os.environ["CUDA_VISIBLE_DEVICES"]="1" 
+
+# patch keras
+import patch_keras
+patch_keras.patch(args.data_directory, args.predict_energy)
+
 # chdir if requested
 if args.working_directory is not None:
     print(f"chdir to {args.working_directory}")
     os.chdir(args.working_directory)
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1" 
-# patch keras and run module 
-import patch_keras
-patch_keras.patch(args.data_directory, args.predict_energy)
+#run module 
 runpy.run_module(args.module_name)

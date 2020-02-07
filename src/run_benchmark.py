@@ -52,7 +52,7 @@ def run_power_cap_experiment(module, args, working_directory, power_caps, data_r
 def run_power_cap_experiment_ecg(data_root, power_caps):
     epochs = 20
     description = "powercap{}-ecg"
-    run_power_cap_experiment("train", ["-n", str(epochs)], "../../ecg/ecg/", power_caps, data_root, description)
+    run_power_cap_experiment("ecg.train", ["-n", str(epochs)], "../../ecg/", power_caps, data_root, description)
 
 def run_power_cap_experiment_mnist(data_root, power_caps):
     description = "powercap{}-mnist"

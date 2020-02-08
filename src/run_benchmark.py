@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 from smi_wrapper import GPU, SMIWrapper, Utilization
 from random import shuffle
+import copy
 # %%
 WARMUP = 5 #warmup in seconds
 
@@ -41,8 +42,9 @@ def run_experiment(data_path, working_directory, module, args ,baseline = 0, pow
 
 def run_power_cap_experiment(module, args, working_directory, power_caps, data_root ,description):
     data_root = Path(data_root)
-    shuffle(power_caps)
-    for p in power_caps:
+    power_caps_shuffled = copy.deepcopy(power_caps)
+    shuffle(power_caps_shuffled)
+    for p in power_caps_shuffled:
         description = description.format(p)
         print(f"[Running] {description}")
         data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
@@ -53,7 +55,8 @@ def run_power_cap_experiment(module, args, working_directory, power_caps, data_r
 def run_power_cap_experiment_ecg(data_root, power_caps):
     epochs = 20
     description = "powercap{}-ecg"
-    run_power_cap_experiment("ecg.train", ["examples/cinc17/config.json" ,"-e" ,"cinc17", "-n", str(epochs)], "../../ecg/", power_caps, data_root, description)
+    args = ["examples/cinc17/config.json" ,"-e" ,"cinc17", "-n", str(epochs)]
+    run_power_cap_experiment("ecg.train", args, "../../ecg/", power_caps, data_root, description)
 
 def run_power_cap_experiment_mnist(data_root, power_caps):
     description = "powercap{}-mnist"
@@ -69,11 +72,11 @@ def run_all_power_cap_corse(data_root, repititions):
     for i in range(repititions):
         data_path = data_root / f"run{i}"
         run_power_cap_experiment_ecg(data_path, power_caps)
-        sleep(30)
+        time.sleep(30)
         run_power_cap_experiment_mnist(data_path, power_caps)
-        sleep(30)
+        time.sleep(30)
         run_power_cap_experiment_cifar(data_path, power_caps)
-        sleep(30)
+        time.sleep(30)
 # %%
 # def run_batch_experiment():
 #     #takes 1h to run on gtx 1060

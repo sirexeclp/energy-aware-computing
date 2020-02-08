@@ -1,0 +1,3 @@
+[submodule "report/hpi-slides"]
+	path = report/hpi-slides
+	url = git@gitlab.hpi.de:felix.grzelka/hpi-slides.git

@@ -64,7 +64,7 @@ def run_power_cap_experiment_mnist(data_root, power_caps):
 
 def run_power_cap_experiment_mnist_big(data_root, power_caps):
     description = "powercap{}-mnist"
-    run_power_cap_experiment("mnist_cnn", ["-c", "4", "-n", "4096", "-b", "128"], "./", power_caps, data_root, description)
+    run_power_cap_experiment("mnist_cnn", ["-c", "2", "-n", "16384", "-b", "32"], "./", power_caps, data_root, description)
 
 # def run_power_cap_experiment_cifar(data_root, power_caps):
 #     description = "powercap{}-cifar"

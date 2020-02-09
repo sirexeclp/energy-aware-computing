@@ -62,9 +62,13 @@ def run_power_cap_experiment_mnist(data_root, power_caps):
     description = "powercap{}-mnist"
     run_power_cap_experiment("mnist_cnn", ["-c", "2", "-n", "512", "-b", "128"], "./", power_caps, data_root, description)
 
-def run_power_cap_experiment_cifar(data_root, power_caps):
-    description = "powercap{}-cifar"
-    run_power_cap_experiment("cifar10_resnet", [], "./", power_caps, data_root, description)
+def run_power_cap_experiment_mnist_big(data_root, power_caps):
+    description = "powercap{}-mnist"
+    run_power_cap_experiment("mnist_cnn", ["-c", "4", "-n", "4096", "-b", "128"], "./", power_caps, data_root, description)
+
+# def run_power_cap_experiment_cifar(data_root, power_caps):
+#     description = "powercap{}-cifar"
+#     run_power_cap_experiment("cifar10_resnet", [], "./", power_caps, data_root, description)
 
 def run_all_power_cap_corse(data_root, repititions):
     power_caps = [150, 200, 250, 300] #Watts
@@ -75,7 +79,8 @@ def run_all_power_cap_corse(data_root, repititions):
         time.sleep(30)
         run_power_cap_experiment_mnist(data_path, power_caps)
         time.sleep(30)
-        run_power_cap_experiment_cifar(data_path, power_caps)
+        run_power_cap_experiment_mnist_big(data_path, power_caps)
+        #run_power_cap_experiment_cifar(data_path, power_caps)
         time.sleep(30)
 # %%
 # def run_batch_experiment():

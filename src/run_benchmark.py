@@ -133,7 +133,7 @@ def run_all_power_cap_corse(data_root, repititions):
 
 if __name__ == "__main__":
     
-    run_all_power_cap_corse("../data-trial", 1)
+    run_all_power_cap_corse("../data-1.0", 10)
 
     with SMIWrapper() as sw:
         success = sw.reset_all_powerlimit()

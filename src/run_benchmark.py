@@ -64,7 +64,7 @@ def run_power_cap_experiment_mnist(data_root, power_caps):
 
 def run_power_cap_experiment_cifar(data_root, power_caps):
     description = "powercap{}-cifar"
-    run_power_cap_experiment("resnet", [], "./", power_caps, data_root, description)
+    run_power_cap_experiment("cifar10_resnet", [], "./", power_caps, data_root, description)
 
 def run_all_power_cap_corse(data_root, repititions):
     power_caps = [150, 200, 250, 300] #Watts

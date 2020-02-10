@@ -351,7 +351,23 @@ def load_power_cap_data(data_root, network, epoch_count):
 mnist_data_big = load_power_cap_data("../data/data-1.2", "mnist-big", epoch_count = 10)
 mnist_data_big = pd.DataFrame(mnist_data_big)
 
-# %%plot_epoch_times
+# %%
+fig_root = Path("../report/fig")
+fig_root.mkdir(parents=True, exist_ok=True)
+# %%
+def plot_all(df, net):
+    plot_power_raw(df, devices[0], net)
+    plot_cum_energy(df,net)
+    epoch_times_boxplot(df, net)
+    epoch_energy_boxplot(df, net)
+    plot_mean_total_energy(df, net)
+    plot_mean_edp(df, net)
+    plot_mean_total_time(df, net)
+
+plot_all(mnist_data_big, "mnist-big")
+
+# %%
+def plot_power_raw(df, device_idx, net):
     fig, ax = plt.subplots(len(power_caps), 1, sharex=True)
     for index,(_, pl) in enumerate(df[df.run=="1"].iterrows()):
         current_ax = ax[index]
@@ -366,12 +382,13 @@ mnist_data_big = pd.DataFrame(mnist_data_big)
             current_ax.axvline(x=epoch_ts,color='orange',linestyle='--')
     current_ax.set_ylabel("Power [W]")
     current_ax.set_xlabel("Time [s]")
-    fig.suptitle("GPU Power vs. Time  w/ Power Limits [150, 200 ,250, 300]")
+    fig.suptitle(f"[{net}]GPU Power vs. Time  w/ Power Limits [150, 200 ,250, 300]")
     #plt.tight_layout() 
     plt.show()
+    plt.savefig(fig_root/f"{net}-power-raw.png")
 
 
-plot_power_raw(mnist_data_big, devices[0])
+#plot_power_raw(mnist_data_big, devices[0], "mnist-big")
 # %%
 
 def plot_cum_energy(df, net):
@@ -390,11 +407,12 @@ def plot_cum_energy(df, net):
         plt.xlabel("Time [$s$]")
         plt.ylabel("Energy [$MJ$]")
         plt.show()
+        plt.savefig(fig_root/f"{net}-cum-energy-{run_idx}.png")
 
-plot_cum_energy(mnist_data_big)
+#plot_cum_energy(mnist_data_big)
 
 # %%
-def epoch_times_hist(df):
+def epoch_times_hist(df, net):
     times = {}
     for pl_idx, pl in df.groupby("power_cap"):
         times[pl_idx] = []
@@ -405,13 +423,14 @@ def epoch_times_hist(df):
         plt.hist(times[pl_idx], bins=30)
         plt.title(f"[{net}]Distribution of Time per Epoch ({pl_idx}W)")
         plt.show()
+        plt.savefig(fig_root/f"{net}-epoch-times-hist-{pl_idx}.png")
 
 
-epoch_times_hist(mnist_data_big)
+#epoch_times_hist(mnist_data_big)
 
 
 # %%
-def epoch_times_boxplot(df):
+def epoch_times_boxplot(df, net):
     times = {}
     for pl_idx, pl in df.groupby("power_cap"):
         times[pl_idx] = []
@@ -424,14 +443,15 @@ def epoch_times_boxplot(df):
     plt.title(f"[{net}]Time per Epoch")
     plt.ylabel("Time [s]")
     plt.show()
+    plt.savefig(fig_root/f"{net}-epoch-times-boxplot.png")
 
 
-epoch_times_boxplot(mnist_data_big)
+#epoch_times_boxplot(mnist_data_big)
 
 
 
 # %%
-def epoch_energy_hist(df):
+def epoch_energy_hist(df, net):
     times = {}
     for pl_idx, pl in df.groupby("power_cap"):
         times[pl_idx] = []
@@ -442,13 +462,14 @@ def epoch_energy_hist(df):
         plt.hist(times[pl_idx], bins=30)
         plt.title(f"[{net}]Distribution of Energy per Epoch ({pl_idx}W)")
         plt.show()
+        plt.savefig(fig_root/f"{net}-epoch-energy-hist-{pl_idx}.png")
 
 
-epoch_energy_hist(mnist_data_big)
+#epoch_energy_hist(mnist_data_big)
 
 
 # %%
-def epoch_energy_boxplot(df):
+def epoch_energy_boxplot(df, net):
     times = {}
     for pl_idx, pl in df.groupby("power_cap"):
         times[pl_idx] = []
@@ -461,68 +482,56 @@ def epoch_energy_boxplot(df):
     plt.title(f"[{net}]Energy per Epoch")
     plt.ylabel("Energy [J]")
     plt.show()
+    plt.savefig(fig_root/f"{net}-epoch-energy-boxplot.png")
 
 
-epoch_energy_boxplot(mnist_data_big)
+#epoch_energy_boxplot(mnist_data_big)
 
-#%%
-def plot_mean_total_energy(df):
+# %%
+def plot_mean_metric(df, metric, net):
     energy = {}
     for pl_idx, pl in df.groupby("power_cap"):
         energy[pl_idx] = []
         for run_idx, run in pl.groupby("run"):
             run = run.iloc[0]
-            energy[pl_idx].append(run.total_energy)
-            
+            energy[pl_idx].append(run[metric])
+    
     plt.plot([x for x in energy.keys()], np.array([np.array(x).mean() for x  in energy.values()]) / MEGA, "x")
+    plt.xlabel("Power Limit [W]")
+    plt.xticks(power_caps)
+
+# %%
+def plot_mean_total_energy(df, net):
+    plot_mean_metric(df, "total_energy", net)
     plt.title(f"[{net}]Mean Total Energy vs. Power Limit")
-    plt.xlabel("Power Limit [W]")
     plt.ylabel("Energy [MJ]")
-    plt.xticks(power_caps)
     plt.show()
+    plt.savefig(fig_root/f"{net}-mean-total-energy.png")
 
 
-plot_mean_total_energy(mnist_data_big)
+#plot_mean_total_energy(mnist_data_big, "MNIST-Big")
 
 
 #%%
-def plot_mean_edp(df):
-    energy = {}
-    for pl_idx, pl in df.groupby("power_cap"):
-        energy[pl_idx] = []
-        for run_idx, run in pl.groupby("run"):
-            run = run.iloc[0]
-            energy[pl_idx].append(run.edp)
-            
-    plt.plot([x for x in energy.keys()], np.array([np.array(x).mean() for x  in energy.values()]) / MEGA, "x")
+def plot_mean_edp(df, net):
+    plot_mean_metric(df, "edp", net)
     plt.title(f"[{net}]Mean EDP vs. Power Limit")
-    plt.xlabel("Power Limit [W]")
     plt.ylabel("Energy Delay Product [MJs]")
-    plt.xticks(power_caps)
     plt.show()
+    plt.savefig(fig_root/f"{net}-mean-edp.png")
 
-
-plot_mean_edp(mnist_data_big)
+#plot_mean_edp(mnist_data_big)
 
 
 #%%
 def plot_mean_total_time(df):
-    energy = {}
-    for pl_idx, pl in df.groupby("power_cap"):
-        energy[pl_idx] = []
-        for run_idx, run in pl.groupby("run"):
-            run = run.iloc[0]
-            energy[pl_idx].append(run.total_time)
-            
-    plt.plot([x for x in energy.keys()], np.array([np.array(x).mean() for x  in energy.values()]), "x")
+    plot_mean_metric(df, "total_time", net)        
     plt.title(f"[{net}]Mean Total Time vs. Power Limit")
-    plt.xlabel("Power Limit [W]")
     plt.ylabel("Time [s]")
-    plt.xticks(power_caps)
     plt.show()
+    plt.savefig(fig_root/f"{net}-mean-total-time.png")
 
-
-plot_mean_total_time(mnist_data_big)
+#plot_mean_total_time(mnist_data_big)
 #%%
 # acc = 0
 # for dev in devices:

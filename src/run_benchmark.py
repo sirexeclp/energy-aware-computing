@@ -63,7 +63,7 @@ def run_power_cap_experiment_mnist(data_root, power_caps):
     run_power_cap_experiment("mnist_cnn", ["-c", "2", "-n", "512", "-b", "128"], "./", power_caps, data_root, description)
 
 def run_power_cap_experiment_mnist_big(data_root, power_caps):
-    description = "powercap{}-mnist"
+    description = "powercap{}-mnist-big"
     run_power_cap_experiment("mnist_cnn", ["-c", "2", "-n", "16384", "-b", "32"], "./", power_caps, data_root, description)
 
 # def run_power_cap_experiment_cifar(data_root, power_caps):
@@ -73,15 +73,24 @@ def run_power_cap_experiment_mnist_big(data_root, power_caps):
 def run_all_power_cap_corse(data_root, repititions):
     power_caps = [150, 200, 250, 300] #Watts
     data_root = Path(data_root)
+    
+    for i in range(repititions):
+        data_path = data_root / f"run{i}"
+        run_power_cap_experiment_mnist(data_path, power_caps)
+        time.sleep(5)
+    
+    for i in range(repititions):
+        data_path = data_root / f"run{i}"
+        run_power_cap_experiment_mnist_big(data_path, power_caps)
+        time.sleep(5)
+    
     for i in range(repititions):
         data_path = data_root / f"run{i}"
         run_power_cap_experiment_ecg(data_path, power_caps)
-        time.sleep(30)
-        run_power_cap_experiment_mnist(data_path, power_caps)
-        time.sleep(30)
-        run_power_cap_experiment_mnist_big(data_path, power_caps)
+        time.sleep(5)
+    
+    
         #run_power_cap_experiment_cifar(data_path, power_caps)
-        time.sleep(30)
 # %%
 # def run_batch_experiment():
 #     #takes 1h to run on gtx 1060
@@ -133,7 +142,7 @@ def run_all_power_cap_corse(data_root, repititions):
 
 if __name__ == "__main__":
     
-    run_all_power_cap_corse("../data-1.1", 10)
+    run_all_power_cap_corse("../data-1.2", 5)
 
     with SMIWrapper() as sw:
         success = sw.reset_all_powerlimit()

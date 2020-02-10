@@ -40,12 +40,12 @@ def run_experiment(data_path, working_directory, module, args ,baseline = 0, pow
 
 # %%
 
-def run_power_cap_experiment(module, args, working_directory, power_caps, data_root ,description):
+def run_power_cap_experiment(module, args, working_directory, power_caps, data_root ,description_template):
     data_root = Path(data_root)
     power_caps_shuffled = copy.deepcopy(power_caps)
     shuffle(power_caps_shuffled)
     for p in power_caps_shuffled:
-        description = description.format(p)
+        description = description_template.format(p)
         print(f"[Running] {description}")
         data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
         run_experiment(data_path, str(working_directory), module, args)

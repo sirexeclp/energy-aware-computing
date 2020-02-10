@@ -9,6 +9,8 @@ from datetime import datetime
 #unit = pint.UnitRegistry()
 mpl.rcParams['figure.dpi'] = 300
 
+MEGA = 1_000_000
+KILO = 1_000
 
 def load_data(path):
     path = Path(path)
@@ -26,9 +28,7 @@ def preprocess_timestamps(timestamps):
 
 # %%
 def units_to_si_base(power_data):
-    columns = [x for x in power_data.columns if "-power" in x]
-    for c in columns:
-        power_data[c] = (power_data[c] * unit.milliwatt).to("watt")
+    power_data.power = power_data.power / KILO
 
 
 # %%
@@ -219,10 +219,10 @@ def calculate_total_cumulative_energy(power_data, devices, start=None, end=None)
         total_energy.append(get_cumulative_energy(dev_data.power, dev_data.timestamp))
     return total_energy
 
-def get_energy_per_epoch(power_data):
+def get_energy_per_epoch(power_data, devices):
     energy = []
     for index, epoch_begin, epoch_end in power_data.epochs():
-        tmp = calculate_total_energy(power_data, [0], epoch_begin, epoch_end)
+        tmp = calculate_total_energy(power_data, devices, epoch_begin, epoch_end)
         energy.append(tmp)
     return energy
 
@@ -273,3 +273,8 @@ def predict_energy_live(power_data,devices,num_epochs,current_epoch,start_epoch=
 
     total_energy = energy_warmup + energy_warm
     return total_energy
+
+
+
+
+# %%

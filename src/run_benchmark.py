@@ -48,7 +48,7 @@ def run_power_cap_experiment(module, args, working_directory, power_caps, data_r
         description = description_template.format(p)
         print(f"[Running] {description}")
         data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
-        run_experiment(data_path, str(working_directory), module, args)
+        run_experiment(data_path, str(working_directory), module, args, power_limit=p)
         time.sleep(10)
 
 

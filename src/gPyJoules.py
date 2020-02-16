@@ -2,6 +2,10 @@ import os
 import runpy
 import argparse
 import sys
+from smi_wrapper import SMIWrapper
+
+
+
 parser = argparse.ArgumentParser(description='Monkey-Patch Keras to record energy measurements via nvidia-smi.')
 
 # Optional argument
@@ -12,7 +16,13 @@ parser.add_argument("-d", "--data-directory", type=str, required=True
                 ,help="Data directory.")    
 
 parser.add_argument("-e", "--predict-energy", action='store_true'
-                    ,help='Enable live energy prediction')       
+                    ,help='Enable live energy prediction')     
+
+parser.add_argument("-pl", "--power-limit", type=int, default=None
+                    ,help='Set power-limit before starting the training.')  
+
+parser.add_argument("-v", "--visible-devices", type=str, default=None
+                    ,help='Set CUDA_VISIBLE_DEVICES environment variable.')       
 
 parser.add_argument("module_name", type=str, help="Module to execute.")
 
@@ -26,7 +36,12 @@ new_args = [sys.argv[0]]
 new_args += args.other
 sys.argv=new_args
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1" 
+if args.visible_devices is not None:
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.visible_devices 
+
+if args.power_limit is not None:
+    SMIWrapper.set_power_limit(args.power_limit)
+
 
 # patch keras
 import patch_keras

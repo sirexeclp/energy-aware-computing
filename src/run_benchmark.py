@@ -15,21 +15,10 @@ import copy
 # %%
 WARMUP = 5 #warmup in seconds
 
-def set_power_limit(power_limit):
-    with SMIWrapper() as sw:
-        if power_limit is not None:
-            success = sw.set_all_powerlimit(power_limit*1000)#convert to mW
-            print(f"[{'Success' if success else 'Failed'}] set power-limit to {power_limit}")
-        else:
-            success = sw.reset_all_powerlimit()
-            print(f"[{'Success' if success else 'Failed'}] reset power-limit to default (max)")
-        
-        assert success, "Failed setting/resetting power-limit, abborting experiment!"
-
 def run_experiment(data_path, working_directory, module, args ,baseline = 0, power_limit=None):
     data_path.mkdir(parents=True)
 
-    set_power_limit(power_limit)
+    SMIWrapper.set_power_limit(power_limit)
         
     args = ["python3", "-m","gPyJoules", "-d", str(data_path.absolute()), "-w", str(working_directory), module, "--"] + args
     print(args)

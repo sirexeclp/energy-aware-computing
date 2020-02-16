@@ -162,3 +162,15 @@ class SMIWrapper():
         for gpu in self.gpus:
              result &= gpu.reset_power_limit()
         return result
+    
+    @staticmethod
+    def set_power_limit(power_limit):
+        with SMIWrapper() as sw:
+            if power_limit is not None:
+                success = sw.set_all_powerlimit(power_limit*1000)#convert to mW
+                print(f"[{'Success' if success else 'Failed'}] set power-limit to {power_limit}")
+            else:
+                success = sw.reset_all_powerlimit()
+                print(f"[{'Success' if success else 'Failed'}] reset power-limit to default (max)")
+            
+            assert success, "Failed setting/resetting power-limit, abborting experiment!"

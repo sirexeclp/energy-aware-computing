@@ -25,8 +25,13 @@ class GPU():
         
         try:
             self.power_limit_constraints = smi.nvmlDeviceGetPowerManagementLimitConstraints(self.handle)
-        except smi.NVMLError_NotSupported as e:
+        except smi.NVMLError_NotSupported:
             self.power_limit_constraints = None
+        
+        try:
+            self.supported_clocks = self._get_supported_clocks()
+        except smi.NVMLError_NotSupported:
+            self.supported_clocks = None
     
     def set_persistence_mode(self, enabled):
         smi.nvmlDeviceSetPersistenceMode(self.handle, 1 if enabled else 0)
@@ -100,6 +105,21 @@ utilization.memory:
         except Exception as e:
             return False
         
+    def _get_supported_clocks(self):
+        supported_clocks = {}
+        mem_clocks = smi.nvmlDeviceGetSupportedMemoryClocks(self.handle)
+        for mem_c in mem_clocks:
+            grafic_clocks = smi.nvmlDeviceGetSupportedGraphicsClocks(self.handle, mem_c)
+            supported_clocks[mem_c] = grafic_clocks
+        return supported_clocks
+    
+    def set_clocks(self, memory_clock, grafic_clock):
+        supported_grafic_clocks = self.supported_clocks.get(memory_clock, None)
+        if supported_grafic_clocks is None or grafic_clock not in supported_grafic_clocks:
+            raise ValueError(f"Given Clock configuration is not supported! mem:{memory_clock} gpu: {grafic_clocks}")
+        smi.nvmlDeviceSetApplicationsClocks(self.handle, memory_clock, grafic_clock)
+        return memory_clock == self.get_memory_clock() and grafic_clock == self.get_sm_clock()
+
 
     def get_stats(self):
         util = self.get_utilization()
@@ -161,6 +181,12 @@ class SMIWrapper():
         result = True
         for gpu in self.gpus:
              result &= gpu.reset_power_limit()
+        return result
+    
+    def set_all_clocks(self, memory, grafic):
+        result = True
+        for gpu in self.gpus:
+            result &= gpu.set_clocks(memory, grafic)
         return result
     
     @staticmethod

@@ -38,7 +38,7 @@ def log_event(name, index=""):
         power_data = PowerData(gpu_data, timestamps)
         pred = predict_energy_live(power_data,[0],num_epochs, index)
         actual = calculate_total_energy(power_data, [0])
-        print(f"\nConsumed Energy: {actual/1_000_000:.3f}/{pred/1_000_000:.3f}MJ")
+        print(f"\nConsumed Energy: {actual/1_000:.3f}/{pred/1_000:.3f}kJ")
 
             
     #timestamp_log.write(f"{str(datetime.now())},{name},{index}\n")

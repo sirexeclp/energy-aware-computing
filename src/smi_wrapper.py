@@ -116,7 +116,7 @@ utilization.memory:
     def set_clocks(self, memory_clock, grafic_clock):
         supported_grafic_clocks = self.supported_clocks.get(memory_clock, None)
         if supported_grafic_clocks is None or supported_grafic_clocks not in supported_grafic_clocks:
-            raise ValueError(f"Given Clock configuration is not supported! mem:{memory_clock} gpu: {grafic_clocks}")
+            raise ValueError(f"Given Clock configuration is not supported! mem:{memory_clock} gpu: {grafic_clock}")
         smi.nvmlDeviceSetApplicationsClocks(self.handle, memory_clock, grafic_clock)
         return memory_clock == self.get_memory_clock() and grafic_clock == self.get_sm_clock()
 

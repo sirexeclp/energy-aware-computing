@@ -98,22 +98,18 @@ def patch(data_root, enable_energy):
                 #,on_batch_begin=lambda batch, logs: log_event("batch_begin", batch)
                 )
 
-    def get_pached_fit(original_function):
-        def pached_fit(*args, **kwargs):
+    def get_patched_fit(original_function):
+        def patched_fit(*args, **kwargs):
             global num_epochs
             num_epochs = kwargs.get("epochs")
             callbacks = kwargs.get("callbacks",list())
             callbacks.append(logger)
             kwargs["callbacks"] = callbacks
             return original_function(*args, **kwargs)
-        return pached_fit
+        return patched_fit
 
-    if not hasattr(tensorflow.keras.models.Sequential, "_fit"):
-        #tensorflow.keras.models.Sequential._fit = tensorflow.keras.models.Sequential.fit
-        seq = tensorflow.keras.models.Sequential
-        seq.fit = get_pached_fit(seq.fit)
-        seq.fit_generator = get_pached_fit(seq.fit_generator)
-    else:
-        print("Keras was already patched!")
+    model = tensorflow.keras.models.Model
+    model.fit = get_patched_fit(model.fit)
+    model.fit_generator = get_patched_fit(model.fit_generator)
 
     log_event("experiment_begin")

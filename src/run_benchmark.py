@@ -15,10 +15,11 @@ import copy
 # %%
 WARMUP = 5 #warmup in seconds
 
-def run_experiment(data_path, working_directory, module, args ,baseline = 0, power_limit=None):
+def run_experiment(data_path, working_directory, module, args ,baseline = 0, power_limit=None, clocks=None):
     data_path.mkdir(parents=True)
 
     SMIWrapper.set_power_limit(power_limit)
+    SMIWrapper.set_clocks(clocks)
         
     args = ["python3", "-m","gPyJoules", "-d", str(data_path.absolute()), "-w", str(working_directory), module, "--"] + args
     print(args)
@@ -40,6 +41,17 @@ def run_power_cap_experiment(module, args, working_directory, power_caps, data_r
         run_experiment(data_path, str(working_directory), module, args, power_limit=p)
         time.sleep(10)
 
+def run_clock_experiment(module, args, working_directory, clocks, data_root ,description_template):
+    data_root = Path(data_root)
+    clocks_shuffled = copy.deepcopy(clocks)
+    shuffle(clocks_shuffled)
+    for c in clocks_shuffled:
+        description = description_template.format(c)
+        print(f"[Running] {description}")
+        data_path = data_root / Path(f"{description}-{datetime.now().isoformat()}")
+        run_experiment(data_path, str(working_directory), module, args, power_limit=None, clocks=c)
+        time.sleep(10)
+
 
 def run_power_cap_experiment_ecg(data_root, power_caps):
     epochs = 20
@@ -55,6 +67,22 @@ def run_power_cap_experiment_mnist_big(data_root, power_caps):
     description = "powercap{}-mnist-big"
     run_power_cap_experiment("mnist_cnn", ["-c", "2", "-n", "16384", "-b", "32"], "./", power_caps, data_root, description)
 
+
+def run_clock_experiment_ecg(data_root, clocks):
+    epochs = 10
+    description = "clocks{}-ecg"
+    args = ["examples/cinc17/config.json" ,"-e" ,"cinc17", "-n", str(epochs)]
+    run_clocks_experiment("ecg.train", args, "../../ecg/", clocks, data_root, description)
+
+def run_clock_experiment_mnist(data_root, clocks):
+    description = "clocks{}-mnist"
+    run_clock_experiment("mnist_cnn", ["-c", "2", "-n", "512", "-b", "128"], "./", clocks, data_root, description)
+
+def run_clock_experiment_mnist_big(data_root, clocks):
+    description = "clocks{}-mnist-big"
+    run_clock_experiment("mnist_cnn", ["-c", "2", "-n", "16384", "-b", "32"], "./", clocks, data_root, description)
+
+
 # def run_power_cap_experiment_cifar(data_root, power_caps):
 #     description = "powercap{}-cifar"
 #     run_power_cap_experiment("cifar10_resnet", [], "./", power_caps, data_root, description)
@@ -67,17 +95,24 @@ def run_all_power_cap_corse(data_root, repititions):
         data_path = data_root / f"run{i}"
         run_power_cap_experiment_mnist(data_path, power_caps)
         time.sleep(5)
-    
-    for i in range(repititions):
-        data_path = data_root / f"run{i}"
         run_power_cap_experiment_mnist_big(data_path, power_caps)
         time.sleep(5)
-    
-    for i in range(repititions):
-        data_path = data_root / f"run{i}"
         run_power_cap_experiment_ecg(data_path, power_caps)
         time.sleep(5)
-    
+
+def run_all_clocks(data_root, repititions):
+    clocks = [135, 285, 435, 585, 735, 885, 1035, 1185, 1335, 1485]
+    clocks = [(877,x) for x in clocks]
+    data_root = Path(data_root)
+
+    for i in range(repititions):
+        data_path = data_root / f"run{i}"
+        run_power_cap_experiment_mnist(data_path, clocks)
+        time.sleep(5)
+        run_power_cap_experiment_mnist_big(data_path, clocks)
+        time.sleep(5)
+        run_power_cap_experiment_ecg(data_path, clocks)
+        time.sleep(5)
     
         #run_power_cap_experiment_cifar(data_path, power_caps)
 # %%
@@ -130,9 +165,21 @@ def run_all_power_cap_corse(data_root, repititions):
 
 
 if __name__ == "__main__":
+    from git import Repo
     
-    run_all_power_cap_corse("../data-1.3", 5)
+    repo = Repo("../")
+    current_tag = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
 
-    with SMIWrapper() as sw:
-        success = sw.reset_all_powerlimit()
-        print(f"[{'Success' if success else 'Failed'}] reset power-limit to default (max)")
+    #assert current_tag is not None, "Error: Need a tagged commit to be checked out!"
+    if current_tag is not None:
+        data_path = Path("../data") / str(repo.head.commit.hexsha)
+    else:
+        data_path = Path("../data") / str(current_tag.name)
+    data_path.mkdir(parents=True, exist_ok=False)
+
+    #run_all_power_cap_corse(data_path, 10)
+
+    run_all_clocks(data_path, 5)
+
+    # reset clocks, when done
+    SMIWrapper.set_clocks(None)

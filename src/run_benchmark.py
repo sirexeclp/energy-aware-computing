@@ -172,9 +172,9 @@ if __name__ == "__main__":
 
     #assert current_tag is not None, "Error: Need a tagged commit to be checked out!"
     if current_tag is not None:
-        data_path = Path("../data") / str(repo.head.commit.hexsha)
-    else:
         data_path = Path("../data") / str(current_tag.name)
+    else:
+        data_path = Path("../data") / str(repo.head.commit.hexsha)
     data_path.mkdir(parents=True, exist_ok=False)
 
     #run_all_power_cap_corse(data_path, 10)

@@ -72,7 +72,7 @@ def run_clock_experiment_ecg(data_root, clocks):
     epochs = 10
     description = "clocks{}-ecg"
     args = ["examples/cinc17/config.json" ,"-e" ,"cinc17", "-n", str(epochs)]
-    run_clocks_experiment("ecg.train", args, "../../ecg/", clocks, data_root, description)
+    run_clock_experiment("ecg.train", args, "../../ecg/", clocks, data_root, description)
 
 def run_clock_experiment_mnist(data_root, clocks):
     description = "clocks{}-mnist"
@@ -107,11 +107,11 @@ def run_all_clocks(data_root, repititions):
 
     for i in range(repititions):
         data_path = data_root / f"run{i}"
-        run_power_cap_experiment_mnist(data_path, clocks)
+        run_clock_experiment_mnist(data_path, clocks)
         time.sleep(5)
-        run_power_cap_experiment_mnist_big(data_path, clocks)
+        run_clock_experiment_mnist_big(data_path, clocks)
         time.sleep(5)
-        run_power_cap_experiment_ecg(data_path, clocks)
+        run_clock_experiment_ecg(data_path, clocks)
         time.sleep(5)
     
         #run_power_cap_experiment_cifar(data_path, power_caps)

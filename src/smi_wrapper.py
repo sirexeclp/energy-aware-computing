@@ -203,7 +203,7 @@ class SMIWrapper():
         return result
     
     @staticmethod
-    def set_clocks(self, clocks):
+    def set_clocks(clocks):
         with SMIWrapper() as sw:
             if clocks is not None:
                 success = sw.set_all_clocks(*clocks)

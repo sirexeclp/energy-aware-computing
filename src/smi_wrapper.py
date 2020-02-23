@@ -60,8 +60,14 @@ class GPU():
     def get_memory_clock(self):
         return smi.nvmlDeviceGetClockInfo(self.handle,smi.NVML_CLOCK_MEM)
     
+    def get_memory_clock_limit(self):
+        return smi.nvmlDeviceGetApplicationsClock(self.handle, smi.NVML_CLOCK_MEM)
+    
     def get_sm_clock(self):
         return smi.nvmlDeviceGetClockInfo(self.handle,smi.NVML_CLOCK_SM)
+        
+    def get_sm_clock_limit(self):
+        return smi.nvmlDeviceGetApplicationsClock(self.handle,smi.NVML_CLOCK_SM)
 
     def get_power_state(self):
         return smi.nvmlDeviceGetPowerState(self.handle)
@@ -125,7 +131,7 @@ class GPU():
         if supported_grafic_clocks is None or grafic_clock not in supported_grafic_clocks:
             raise ValueError(f"Given Clock configuration is not supported! mem:{memory_clock} gpu: {grafic_clock}")
         smi.nvmlDeviceSetApplicationsClocks(self.handle, memory_clock, grafic_clock)
-        return memory_clock == self.get_memory_clock() and grafic_clock == self.get_sm_clock()
+        return memory_clock == self.get_memory_clock_limit() and grafic_clock == self.get_sm_clock_limit()
 
 
     def get_stats(self):
@@ -212,7 +218,7 @@ class SMIWrapper():
                 success = sw.reset_all_clocks()
                 print(f"[{'Success' if success else 'Failed'}] reset clocks to default")
             
-            assert success, "Failed setting/resetting power-limit, abborting experiment!"
+            assert success, f"Failed setting/resetting clocks ({clocks}), abborting experiment!"
 
     @staticmethod
     def set_power_limit(power_limit):

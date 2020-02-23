@@ -39,17 +39,20 @@ class GPU():
     def get_persistence_mode(self):
         return smi.nvmlDeviceGetPersistenceMode(self.handle) == 1
 
+    def test(self):
+        smi.nvmlDeviceGetSamples(self.handle, smi.NVML_TOTAL_POWER_SAMPLES,0)
+
     def get_utilization(self):
         """
-https://nvidia.custhelp.com/app/answers/detail/a_id/3751/~/useful-nvidia-smi-queries
+        https://nvidia.custhelp.com/app/answers/detail/a_id/3751/~/useful-nvidia-smi-queries
 
-utilization.gpu:
-    Percent of time over the past sample period during which one or more kernels was executing on the GPU.
-    The sample period may be between 1 second and 1/6 second depending on the product.
+        utilization.gpu:
+            Percent of time over the past sample period during which one or more kernels was executing on the GPU.
+            The sample period may be between 1 second and 1/6 second depending on the product.
 
-utilization.memory:
-    Percent of time over the past sample period during which global (device) memory was being read or written.
-    The sample period may be between 1 second and 1/6 second depending on the product.
+        utilization.memory:
+            Percent of time over the past sample period during which global (device) memory was being read or written.
+            The sample period may be between 1 second and 1/6 second depending on the product.
         """
         res = smi.nvmlDeviceGetUtilizationRates(self.handle)
         return Utilization(res.gpu, res.memory)
@@ -113,6 +116,10 @@ utilization.memory:
             supported_clocks[mem_c] = grafic_clocks
         return supported_clocks
     
+    def reset_clocks(self):
+        smi.nvmlDeviceResetApplicationsClocks(self.handle)
+        return True
+
     def set_clocks(self, memory_clock, grafic_clock):
         supported_grafic_clocks = self.supported_clocks.get(memory_clock, None)
         if supported_grafic_clocks is None or grafic_clock not in supported_grafic_clocks:
@@ -189,6 +196,24 @@ class SMIWrapper():
             result &= gpu.set_clocks(memory, grafic)
         return result
     
+    def reset_all_clocks(self):
+        result = True
+        for gpu in self.gpus:
+            result &= gpu.reset_clocks()
+        return result
+    
+    @staticmethod
+    def set_clocks(self, clocks):
+        with SMIWrapper() as sw:
+            if clocks is not None:
+                success = sw.set_all_clocks(*clocks)
+                print(f"[{'Success' if success else 'Failed'}] set clocks to {clocks}")
+            else:
+                success = sw.reset_all_clocks()
+                print(f"[{'Success' if success else 'Failed'}] reset clocks to default")
+            
+            assert success, "Failed setting/resetting power-limit, abborting experiment!"
+
     @staticmethod
     def set_power_limit(power_limit):
         with SMIWrapper() as sw:

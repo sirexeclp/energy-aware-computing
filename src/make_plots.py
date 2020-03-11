@@ -1,5 +1,6 @@
-#%load_ext autoreload
-#%autoreload 2
+# %%
+# #%load_ext autoreload
+# #%autoreload 2
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -17,10 +18,14 @@ from util import *
 
 # %%
 GPU1=1
-devices=[GPU1]
+GPU0=0
+#devices=[GPU1]
+devices=[GPU0]
 power_caps = [150, 200, 250, 300]
-
-#%%
+clocks = [135, 285, 435, 585, 735, 885, 1035, 1185, 1335, 1485]
+#clocks = [(877,x) for x in clocks]
+#power_caps = clocks
+# %%
 def load_power_cap_data(data_root, network, epoch_count):
     
     data_root = Path(data_root)
@@ -30,11 +35,12 @@ def load_power_cap_data(data_root, network, epoch_count):
 
     for cap in power_caps:
         for run in runs:
+            #description = f"clocks(*{cap}*)-{network}"
             description = f"powercap{cap}-{network}"
             #print(description)
             data_path = list(run.glob(f"{description}*"))[0]
             power_data = PowerData.load(data_path)
-            assert power_data.t_info.get_epoch_count() == epoch_count, "Unexpected Number of epochs!"
+            assert power_data.t_info.get_epoch_count() == epoch_count, f"Unexpected Number of epochs! Expected: {epoch_count}, but got: {power_data.t_info.get_epoch_count()} in {data_path}"
             epoch_energy = get_energy_per_epoch(power_data, devices=devices)
             energy = np.mean(epoch_energy[1:])
            
@@ -89,7 +95,7 @@ def plot_all(df, net):
 # %%
 def plot_power_raw(df, device_idx, net):
     fig, ax = plt.subplots(len(power_caps), 1, sharex=True)
-    for index,(_, pl) in enumerate(df[df.run=="1"].iterrows()):
+    for index,(_, pl) in enumerate(df[df.run=="0"].iterrows()):
         current_ax = ax[index]
         power_data = pl["power_data"]
         device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
@@ -217,7 +223,14 @@ def plot_mean_metric(df, metric, net, scale):
             run = run.iloc[0]
             energy[pl_idx].append(run[metric])
     
-    plt.plot([x for x in energy.keys()], np.array([np.array(x).mean() for x  in energy.values()]) / scale, "x")
+    x = [x for x in energy.keys()]
+    y = np.array([np.array(x).mean() for x  in energy.values()]) / scale
+    from sklearn.linear_model import LinearRegression
+    reg = np.poly1d(np.polyfit(np.array(x), y, 2))
+    x_hat = np.arange(min(x),max(x),10)
+    y_hat = reg(x_hat)
+    plt.plot(x_hat,y_hat)
+    plt.plot(x,y, "x")
     plt.xlabel("Power Limit [W]")
     plt.xticks(power_caps)
 
@@ -233,7 +246,7 @@ def plot_mean_total_energy(df, net):
 #plot_mean_total_energy(mnist_data_big, "MNIST-Big")
 
 
-#%%
+# %%
 def plot_mean_edp(df, net):
     plot_mean_metric(df, "edp", net, MEGA)
     plt.title(f"[{net}]Mean EDP vs. Power Limit")
@@ -244,7 +257,7 @@ def plot_mean_edp(df, net):
 #plot_mean_edp(mnist_data_big)
 
 
-#%%
+# %%
 def plot_mean_total_time(df, net):
     plot_mean_metric(df, "total_time", net, 1)        
     plt.title(f"[{net}]Mean Total Time vs. Power Limit")
@@ -253,16 +266,209 @@ def plot_mean_total_time(df, net):
     plt.savefig(fig_root/f"{net}-mean-total-time.png")
 
 
+
+def build_empty_plots(count, subplots):
+    return [plt.subplots(subplots, 1, sharex=True) for x in range(count)]
+
+# # def make_raw_plot(df, device_idx, net):
+# #     plots = 
+# #     for idx, run in df.groupby("run"):
+# #         fig, ax = 
+# #         for index, (_,pl) in enumerate(run.groupby("power_cap")):
+# #             current_ax = ax[index]
+# #             power_data = pl.iloc[0]["power_data"]
+# #             device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
+# #             timestamps = np.array(device.timestamp)
+# #             timestamps = (timestamps - timestamps[0]) / np.timedelta64(1, "s")
+# #             epochs = power_data.t_info.epochs()
+            
+# #             for i, epoch_begin, _ in epochs:
+# #                 epoch_ts = epoch_begin / np.timedelta64(1, "s") - timestamps[0]
+# #                 current_ax.axvline(x=epoch_ts,color='green',linestyle='--')
+            
+# #             a, = current_ax.plot(timestamps, device["pci-tx"])
+# #             b, = current_ax.plot(timestamps, device["pci-rx"])
+            
+# #             #current_ax.plot(timestamps, device["clock-sm"])
+# #             #current_ax.plot(timestamps, device.power/250)
+# #             #current_ax.set_ylim(35,60)
+# #             #current_ax.set_ylim(1000,1550)
+# #             current_ax.legend([a,b],["tx","rx"])
+
+# #         current_ax.set_ylabel("Power [W]")
+# #         current_ax.set_xlabel("Time [s]")
+# #         fig.suptitle(f"[{net}]GPU Power vs. Time  w/ Power Limits [150, 200 ,250, 300]")
+# #         #plt.tight_layout() 
+# #         plots.append((fig, ax))
+# #         #plt.show()
+# #     #plt.savefig(fig_root/f"{net}-power-raw.png")
+# #     return plots
+
+#def plot_epoch_markers(epochs, ax, timestamps):
+
+
+def plot_pci_raw(df, device_idx, net):
+    plots = []
+    for idx, run in df.groupby("run"):
+        fig, ax = plt.subplots(len(power_caps), 1, sharex=True)
+        for index, (_,pl) in enumerate(run.groupby("power_cap")):
+            current_ax = ax[index]
+            power_data = pl.iloc[0]["power_data"]
+            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
+            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            
+            for i, epoch_begin, _ in power_data.t_info.epochs():
+                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts,color='green',linestyle='--')
+            
+            a, = current_ax.plot(timestamps, device["pci-tx"])
+            b, = current_ax.plot(timestamps, device["pci-rx"])
+            
+            #current_ax.plot(timestamps, device["clock-sm"])
+            #current_ax.plot(timestamps, device.power/250)
+            #current_ax.set_ylim(35,60)
+            #current_ax.set_ylim(1000,1550)
+            current_ax.legend([a,b],["tx","rx"])
+
+        current_ax.set_ylabel("Power [W]")
+        current_ax.set_xlabel("Time [s]")
+        fig.suptitle(f"[{net}]GPU Power vs. Time  w/ Power Limits [150, 200 ,250, 300]")
+        #plt.tight_layout() 
+        plots.append((fig, ax))
+        #plt.show()
+    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    return plots
+
+def plot_clock_raw(df, device_idx, net):
+    plots = []
+    for idx, run in df.groupby("run"):
+        fig, ax = plt.subplots(len(power_caps), 1, sharex=True)
+        for index, (_,pl) in enumerate(run.groupby("power_cap")):
+            current_ax = ax[index]
+            power_data = pl.iloc[0]["power_data"]
+            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
+            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            
+            for i, epoch_begin, _ in power_data.t_info.epochs():
+                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts,color='green',linestyle='--')
+            
+            current_ax.plot(timestamps, device["clock-sm"])
+            #current_ax.plot(timestamps, device.power/250)
+            #current_ax.set_ylim(35,60)
+            current_ax.set_ylim(1000,1550)
+    
+        current_ax.set_ylabel("Clock Frequency [Hz]")
+        current_ax.set_xlabel("Time [s]")
+        fig.suptitle(f"[{net}]GPU Clock vs. Time  w/ Power Limits [150, 200 ,250, 300]")
+        #plt.tight_layout() 
+        plots.append((fig, ax))
+        #plt.show()
+    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    return plots
+
+def plot_temp_raw(df, device_idx, net):
+    plots = []
+    for idx, run in df.groupby("run"):
+        fig, ax = plt.subplots(len(power_caps), 1, sharex=True)
+        for index, (_,pl) in enumerate(run.groupby("power_cap")):
+            current_ax = ax[index]
+            power_data = pl.iloc[0]["power_data"]
+            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
+            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            
+            for i, epoch_begin, _ in power_data.t_info.epochs():
+                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts,color='green',linestyle='--')
+            
+            a, = current_ax.plot(timestamps, device["tmp"])
+            current_ax.set_ylim(35,60)
+
+        current_ax.set_ylabel("Temp [°C]")
+        current_ax.set_xlabel("Time [s]")
+        fig.suptitle(f"[{net}]GPU Temp vs. Time  w/ Power Limits [150, 200 ,250, 300]")
+        #plt.tight_layout() 
+        plots.append((fig, ax))
+        #plt.show()
+    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    return plots
+
+def plot_power_state_raw(df, device_idx, net):
+    plots = []
+    for idx, run in df.groupby("run"):
+        fig, ax = plt.subplots(len(power_caps), 1, sharex=True)
+        for index, (_,pl) in enumerate(run.groupby("power_cap")):
+            current_ax = ax[index]
+            power_data = pl.iloc[0]["power_data"]
+            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
+            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            
+            for i, epoch_begin, _ in power_data.t_info.epochs():
+                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts,color='green',linestyle='--')
+            
+            a, = current_ax.plot(timestamps, device["power-state"])
+            #current_ax.set_ylim(35,60)
+
+        current_ax.set_ylabel("Power-State")
+        current_ax.set_xlabel("Time [s]")
+        fig.suptitle(f"[{net}]GPU Power-State vs. Time  w/ Power Limits [150, 200 ,250, 300]")
+        #plt.tight_layout() 
+        plots.append((fig, ax))
+        #plt.show()
+    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    return plots
+
+
 import matplotlib
+mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.figsize'] = 16, 9
+plt.style.use('seaborn-colorblind')
 matplotlib.use('Agg')
-fig_root = Path("../report/fig")
+fig_root = Path("../report/fig2")
 fig_root.mkdir(parents=True, exist_ok=True)
 
-mnist_data_big = load_power_cap_data("../data/data-1.2", "mnist-big", epoch_count = 10)
-mnist_data_big = pd.DataFrame(mnist_data_big)
-plot_all(mnist_data_big, "mnist-big")
+mnist_data_big = load_power_cap_data("../data/data-1.3.1", "mnist-big", epoch_count = 10)
+# mnist_data_big = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "mnist-big", epoch_count = 10)
+# mnist_data_big = pd.DataFrame(mnist_data_big)
+# plot_all(mnist_data_big, "mnist-big")
+plots = plot_temp_raw(mnist_data_big, devices[0], "mnist_big")
+#mpl.rcParams['figure.dpi'] = 300
+for fig, ax in plots:
+    fig.show()
 
+plt.show()
+plots = plot_pci_raw(mnist_data_big, devices[0], "mnist_big")
+#mpl.rcParams['figure.dpi'] = 300
+for fig, ax in plots:
+    fig.show()
+plt.show()
+plots = plot_clock_raw(mnist_data_big, devices[0], "mnist_big")
+#mpl.rcParams['figure.dpi'] = 300
+for fig, ax in plots:
+    fig.show()
+plt.show()
 
-mnist_data_small = load_power_cap_data("../data/data-1.2", "mnist-2", epoch_count = 10)
-mnist_data_small = pd.DataFrame(mnist_data_small)
-plot_all(mnist_data_small, "mnist-small")
+plots = plot_power_state_raw(mnist_data_big, devices[0], "mnist_big")
+#mpl.rcParams['figure.dpi'] = 300
+for fig, ax in plots:
+    fig.show()
+plt.show()
+input()
+plt.show()
+plt.show()
+
+# mnist_data_small = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "mnist-2", epoch_count = 10)
+# mnist_data_small = pd.DataFrame(mnist_data_small)
+# plot_all(mnist_data_small, "mnist_data_small")
+
+# # ecg_data = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "ecg", epoch_count = 10)
+# # ecg_data = pd.DataFrame(ecg_data)
+# # plot_all(ecg_data, "ecg_data")
+# # mnist_data_small = load_power_cap_data("../data/data-1.3.1", "mnist-2", epoch_count = 10)
+# # mnist_data_small = pd.DataFrame(mnist_data_small)
+# # plot_all(mnist_data_small, "mnist-small")
+
+# # # ecg_data = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "ecg", epoch_count = 10)
+# # # ecg_data = pd.DataFrame(ecg_data)
+# # # plot_all(ecg_data, "ecg")

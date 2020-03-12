@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib as mpl
 from pathlib import Path
 from datetime import datetime
+from enum import Enum
+from scipy.interpolate import interp1d
 #import pint
 #unit = pint.UnitRegistry()
 mpl.rcParams['figure.dpi'] = 300
@@ -76,6 +78,15 @@ class EpochIterator():
         else:
             raise StopIteration
 
+class EventType(Enum):
+    EPOCH_BEGIN = "epoch_begin"
+    EPOCH_END = "epoch_end"
+    
+    TRAIN_BEGIN = "train_begin"
+    TRAIN_END = "train_end"
+
+    EXPERIMENT_BEGIN = "experiment_begin"
+    EXPERIMENT_END = "experiment_end"
 
 
 class TimestampInfo():
@@ -181,7 +192,7 @@ def calculate_energy(power, timestamps):
 def get_cumulative_energy(power, timestamps):
     power = np.array(power)
     timestamps = np.array(timestamps)
-    time_diff = diff3(timestamps) / np.timedelta64(1, 's')
+    time_diff = diff3(timestamps) #/ np.timedelta64(1, 's')
     energy = power * time_diff
     return np.cumsum(energy)
 
@@ -205,7 +216,38 @@ def calculate_total_energy_experiment(power_data, devices):
     start = power_data.t_info.get_experiment_begin()
     end = power_data.t_info.get_experiment_end()
     return calculate_total_energy(power_data, devices, start, end)
+
+
+def interpolate(x, y, step):
+    length = int(x[-1])
+    x_tick = np.arange(0, length, step)
+    f_cubic = interp1d(x,y, kind="cubic")
+    return x_tick, f_cubic(x_tick)
+
+def pad_n_mask(values):
+    max_len = max([len(x) for x in values])
+    result_padded = []
+    for i in values:
+        padded = np.zeros(max_len)
+        mask = np.ones(max_len)
+        
+        padded[:len(i)] = i
+        mask[:len(i)] = 0
+        
+        tmp = np.ma.array(padded, mask=mask)
+        result_padded.append(tmp)
+    return np.ma.array(result_padded)
+
+def plot_mean_std(x, Y):
+    mean = Y.mean(axis=0)
+    std = Y.std(axis=0)
     
+    plt.plot(x, mean)
+    plt.fill_between(x, mean-std, mean+std,
+            alpha=0.1, linewidth=3, antialiased=True)
+
+def timestamp2second(ts):
+    return (ts - ts[0]) / np.timedelta64(1,"s")
 
 def calculate_total_cumulative_energy(power_data, devices, start=None, end=None):
     start = power_data.iloc[0].timestamp if start is None else start
@@ -216,7 +258,12 @@ def calculate_total_cumulative_energy(power_data, devices, start=None, end=None)
     total_energy = []
     for dev in devices:
         dev_data = data_slice[data_slice["gpu-index"] == dev]
-        total_energy.append(get_cumulative_energy(dev_data.power, dev_data.timestamp))
+        timestamp = np.array(dev_data.timestamp)
+        power = dev_data.power
+        timestamp = timestamp2second(timestamp)
+
+        timestamp, power = interpolate(timestamp, power, 0.25)
+        total_energy.append((timestamp, get_cumulative_energy(power, timestamp)))
     return total_energy
 
 def get_energy_per_epoch(power_data, devices):

@@ -102,9 +102,9 @@ def patch(data_root, enable_energy):
         def patched_fit(*args, **kwargs):
             global num_epochs
             num_epochs = kwargs.get("epochs")
-            callbacks = kwargs.get("callbacks",list())
-            callbacks.append(logger)
-            kwargs["callbacks"] = callbacks
+            kwargs.setdefault("callbacks", list()).append(logger)
+            if not enable_energy:
+                kwargs["verbose"] = 2
             return original_function(*args, **kwargs)
         return patched_fit
 

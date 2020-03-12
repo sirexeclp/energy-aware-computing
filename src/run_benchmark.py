@@ -54,7 +54,7 @@ def run_clock_experiment(module, args, working_directory, clocks, data_root ,des
 
 
 def run_power_cap_experiment_ecg(data_root, power_caps):
-    epochs = 20
+    epochs = 10
     description = "powercap{}-ecg"
     args = ["examples/cinc17/config.json" ,"-e" ,"cinc17", "-n", str(epochs)]
     run_power_cap_experiment("ecg.train", args, "../../ecg/", power_caps, data_root, description)
@@ -177,9 +177,10 @@ if __name__ == "__main__":
         data_path = Path("../data") / str(repo.head.commit.hexsha)
     data_path.mkdir(parents=True, exist_ok=False)
 
-    #run_all_power_cap_corse(data_path, 10)
+    run_all_power_cap_corse(data_path, 10)
 
-    run_all_clocks(data_path, 5)
+    #run_all_clocks(data_path, 5)
 
     # reset clocks, when done
     SMIWrapper.set_clocks(None)
+    SMIWrapper.set_power_limit(None)

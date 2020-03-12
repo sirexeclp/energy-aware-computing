@@ -14,7 +14,7 @@ from random import shuffle
 import copy
 # %%
 WARMUP = 5 #warmup in seconds
-VISIBLE_DEVICES=3
+VISIBLE_DEVICES="3"
 
 def run_experiment(data_path, working_directory, module, args ,baseline = 0, power_limit=None, clocks=None):
     data_path.mkdir(parents=True)
@@ -22,7 +22,7 @@ def run_experiment(data_path, working_directory, module, args ,baseline = 0, pow
     SMIWrapper.set_power_limit(power_limit)
     SMIWrapper.set_clocks(clocks)
         
-    args = ["python3", "-m","gPyJoules", "-d", str(data_path.absolute()),"-v",VISIBLE_DEVICES, "-w", str(working_directory), module, "--"] + args
+    args = ["python3", "-m","gPyJoules", "-d", str(data_path.absolute()),"-v",str(VISIBLE_DEVICES), "-w", str(working_directory), module, "--"] + args
     print(args)
     p = subprocess.Popen(args)
     while p.poll() is None:

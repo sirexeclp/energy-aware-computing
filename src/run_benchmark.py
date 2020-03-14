@@ -94,10 +94,10 @@ def run_all_power_cap_corse(data_root, repititions):
     
     for i in range(repititions):
         data_path = data_root / f"run{i}"
-        run_power_cap_experiment_mnist(data_path, power_caps)
-        time.sleep(5)
-        run_power_cap_experiment_mnist_big(data_path, power_caps)
-        time.sleep(5)
+        # run_power_cap_experiment_mnist(data_path, power_caps)
+        # time.sleep(5)
+        # run_power_cap_experiment_mnist_big(data_path, power_caps)
+        # time.sleep(5)
         run_power_cap_experiment_ecg(data_path, power_caps)
         time.sleep(5)
 

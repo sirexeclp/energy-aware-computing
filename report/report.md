@@ -25,15 +25,15 @@ header-includes: |
 
 # Motivation
 
-Training Artificial Deep Neural Networks consumes big ammounts of energy [citation needed].
-The time needed to train big (or rather deep), state of the art network, for problems such as image classification or natural language processing can range from several hours to weeks. During development networks are being trained multiple times to find the best combination of hyper parameters.
-To speed up training specialized hardware such as clusters of Graphics Processing Units (GPUs) or Tensor Processing Units (TPUs) are being used.
+Training Artificial Deep Neural Networks consumes big ammounts of energy [@Strubell2019].
+The time needed to train big (or rather deep), state of the art network, for problems such as image classification or natural language processing can range from several hours to weeks [@Strubell2019]. During development networks are being trained multiple times to find the best combination of hyper parameters.
+To speed up training specialized hardware such as clusters of Graphics Processing Units (GPUs) or Tensor Processing Units (TPUs) are being used [@Jouppi2017].
 Nvidia offers servers utilizing its Telsa V100-GPUs to train neural networks.[^dgx]
 A smaller server (DGX-1)[^dgx-1] equipped with 8 GPUs and a bigger variant (DGX-2) with 16 GPUs.
 Each Telsa V100-GPU has a maximum thermal design power (TDP) of 300W.
 The DGX-1 therefore has 4 redundant 1600W power supplies, which can deliver a total power of 3200W. Each GPU has an idle power draw of around 40--50W (or 50--60W when idle but attached to a process), which equates to a total idle power draw (including the rest of the system) of roughly 650--750W.
 
-[insert examples of training times for some networks]
+<!-- [insert examples of training times for some networks] -->
 
 [^dgx]: [https://www.nvidia.com/en-us/data-center/dgx-systems/](https://www.nvidia.com/en-us/data-center/dgx-systems/) Retrieved: 2020-03-02
 [^dgx-1]: [https://www.nvidia.com/en-us/data-center/dgx-1/](https://www.nvidia.com/en-us/data-center/dgx-1/) Retrieved: 2020-03-02

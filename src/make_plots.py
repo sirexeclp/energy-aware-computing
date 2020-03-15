@@ -19,8 +19,9 @@ from util import *
 # %%
 GPU1=1
 GPU0=0
-#devices=[GPU1]
-devices=[GPU0]
+GPU3=3
+devices=[GPU3]
+#devices=[GPU0]
 power_caps = [150, 200, 250, 300]
 clocks = [135, 285, 435, 585, 735, 885, 1035, 1185, 1335, 1485]
 #clocks = [(877,x) for x in clocks]
@@ -76,6 +77,7 @@ def load_power_cap_data(data_root, network, epoch_count):
 
 # %%
 def plot_all(df, net):
+    plt.clf()
     plot_power_raw(df, devices[0], net)
     plt.clf()
     plot_cum_energy(df,net)
@@ -89,7 +91,7 @@ def plot_all(df, net):
     plot_mean_edp(df, net)
     plt.clf()
     plot_mean_total_time(df, net)
-
+    plt.clf()
 
 
 # %%
@@ -111,30 +113,54 @@ def plot_power_raw(df, device_idx, net):
     fig.suptitle(f"[{net}]GPU Power vs. Time  w/ Power Limits [150, 200 ,250, 300]")
     #plt.tight_layout() 
     plt.show()
-    plt.savefig(fig_root/f"{net}-power-raw.png")
+    plt.savefig(fig_root/f"{net}-power-raw.pdf")
 
 
 #plot_power_raw(mnist_data_big, devices[0], "mnist-big")
 # %%
 
-def plot_cum_energy(df, net):
-    runs = df.groupby("run")
-    for run_idx, run in runs:
-        pl_list =[]
-        for pl_idx, pl in run.groupby("power_cap"):
-            pl = pl.iloc[0]
-            pl_list.append(pl_idx)
-            epoch2_begin = pl.power_data.t_info.get_epoch_begin(1)
 
-            plt.plot(pl.cum_energy/MEGA)
-            #plt.plot((epoch2_begin-pl.power_data.power_gpu.iloc[0].timestamp)/np.timedelta64(1,"s"),0,"x")
-        plt.legend([f"{x}W" for x in pl_list])
-        plt.title(f"[{net}]Cumulative Energy w/ Power Limits (Run {run_idx})")
-        plt.xlabel("Time [$s$]")
-        plt.ylabel("Energy [$MJ$]")
-        plt.show()
-        plt.savefig(fig_root/f"{net}-cum-energy-{run_idx}.png")
-        plt.clf()
+
+def plot_cum_energy(df, net):
+    #runs = df.groupby("run")
+    pl_list =[]
+    ax = plt.gca()
+    for pl_idx, pl in df.groupby("power_cap"):
+        color = next(ax._get_lines.prop_cycler)['color']
+
+        pl_list.append(pl_idx)
+        results = list(pl.groupby("run").apply(lambda x: x.cum_energy))
+        x, y = zip(*results)
+        # pl[pl.run == 0].cum_energy
+        results = pad_n_mask(y)
+        plot_mean_std(np.arange(0,results.shape[1]//4,0.25),results,color=color,label=f"{pl_idx}W")
+        # x,y = pl[pl.run == "0"].cum_energy.iloc[0]
+        # plt.plot(y)
+        # print(len(pl[pl.run == "0"].cum_energy.iloc[0]))
+        
+        max_x = max([x_[-1] for x_ in x])
+        max_y = max([y_[-1] for y_ in y])/KILO
+        plt.axvline(x=max_x,linestyle=':',color=color)
+        #plt.axhline(y=max_y,linestyle=':',color=color)
+
+        # if pl_idx == 200:
+        #     break
+        # for run_idx, run in pl.groupby("run"):
+        #     run = run.iloc[0]
+        #     results.append(pl.cum_energy)
+        #     timestamps, cum_energy = pl.cum_energy
+        #     cum_energy = cum_energy / 1000
+        #     pad_n_mask
+            
+        #     plt.plot(pl.cum_energy/MEGA)
+        #     #plt.plot((epoch2_begin-pl.power_data.power_gpu.iloc[0].timestamp)/np.timedelta64(1,"s"),0,"x")
+    plt.legend()#[f"{x}W" for x in pl_list])
+    plt.title(f"[{net}]Cumulative Energy w/ Power Limits")
+    plt.xlabel("Time [$s$]")
+    plt.ylabel("Energy [$kJ$]")
+    plt.show()
+    plt.savefig(fig_root/f"{net}-cum-energy.pdf", bbox_inches='tight')
+    plt.clf()
 
 #plot_cum_energy(mnist_data_big)
 
@@ -150,7 +176,7 @@ def epoch_times_hist(df, net):
         plt.hist(times[pl_idx], bins=30)
         plt.title(f"[{net}]Distribution of Time per Epoch ({pl_idx}W)")
         plt.show()
-        plt.savefig(fig_root/f"{net}-epoch-times-hist-{pl_idx}.png")
+        plt.savefig(fig_root/f"{net}-epoch-times-hist-{pl_idx}.pdf")
 
 
 #epoch_times_hist(mnist_data_big)
@@ -170,7 +196,7 @@ def epoch_times_boxplot(df, net):
     plt.title(f"[{net}]Time per Epoch")
     plt.ylabel("Time [s]")
     plt.show()
-    plt.savefig(fig_root/f"{net}-epoch-times-boxplot.png")
+    plt.savefig(fig_root/f"{net}-epoch-times-boxplot.pdf")
 
 
 #epoch_times_boxplot(mnist_data_big)
@@ -189,7 +215,7 @@ def epoch_energy_hist(df, net):
         plt.hist(times[pl_idx], bins=30)
         plt.title(f"[{net}]Distribution of Energy per Epoch ({pl_idx}W)")
         plt.show()
-        plt.savefig(fig_root/f"{net}-epoch-energy-hist-{pl_idx}.png")
+        plt.savefig(fig_root/f"{net}-epoch-energy-hist-{pl_idx}.pdf")
 
 
 #epoch_energy_hist(mnist_data_big)
@@ -209,7 +235,7 @@ def epoch_energy_boxplot(df, net):
     plt.title(f"[{net}]Energy per Epoch")
     plt.ylabel("Energy [J]")
     plt.show()
-    plt.savefig(fig_root/f"{net}-epoch-energy-boxplot.png")
+    plt.savefig(fig_root/f"{net}-epoch-energy-boxplot.pdf")
 
 
 #epoch_energy_boxplot(mnist_data_big)
@@ -223,15 +249,28 @@ def plot_mean_metric(df, metric, net, scale):
             run = run.iloc[0]
             energy[pl_idx].append(run[metric])
     
-    x = [x for x in energy.keys()]
+    x = np.array([x for x in energy.keys()])
     y = np.array([np.array(x).mean() for x  in energy.values()]) / scale
     from sklearn.linear_model import LinearRegression
-    reg = np.poly1d(np.polyfit(np.array(x), y, 2))
-    x_hat = np.arange(min(x),max(x),10)
+    reg = np.poly1d(np.polyfit(x, y, 2))
+
+    y_hat = reg(x)
+
+    y_bar = np.mean(y)
+    ssreg = np.sum((y_hat - y_bar)**2)
+    sstot = np.sum((y - y_bar)**2)
+    r2 = ssreg/sstot
+
+    step = 5
+    x_hat = np.arange(min(x),max(x)+step,step)
     y_hat = reg(x_hat)
+    
+    #label="second degree least squares polynomial fit"
     plt.plot(x_hat,y_hat)
     plt.plot(x,y, "x")
     plt.xlabel("Power Limit [W]")
+    plt.plot([], [], ' ', label=f"$R^2={r2:.3f}$")
+    plt.legend()
     plt.xticks(power_caps)
 
 # %%
@@ -240,7 +279,7 @@ def plot_mean_total_energy(df, net):
     plt.title(f"[{net}]Mean Total Energy vs. Power Limit")
     plt.ylabel("Energy [MJ]")
     plt.show()
-    plt.savefig(fig_root/f"{net}-mean-total-energy.png")
+    plt.savefig(fig_root/f"{net}-mean-total-energy.pdf")
 
 
 #plot_mean_total_energy(mnist_data_big, "MNIST-Big")
@@ -252,7 +291,7 @@ def plot_mean_edp(df, net):
     plt.title(f"[{net}]Mean EDP vs. Power Limit")
     plt.ylabel("Energy Delay Product [MJs]")
     plt.show()
-    plt.savefig(fig_root/f"{net}-mean-edp.png")
+    plt.savefig(fig_root/f"{net}-mean-edp.pdf")
 
 #plot_mean_edp(mnist_data_big)
 
@@ -263,7 +302,7 @@ def plot_mean_total_time(df, net):
     plt.title(f"[{net}]Mean Total Time vs. Power Limit")
     plt.ylabel("Time [s]")
     plt.show()
-    plt.savefig(fig_root/f"{net}-mean-total-time.png")
+    plt.savefig(fig_root/f"{net}-mean-total-time.pdf")
 
 
 
@@ -301,7 +340,7 @@ def build_empty_plots(count, subplots):
 # #         #plt.tight_layout() 
 # #         plots.append((fig, ax))
 # #         #plt.show()
-# #     #plt.savefig(fig_root/f"{net}-power-raw.png")
+# #     #plt.savefig(fig_root/f"{net}-power-raw.pdf")
 # #     return plots
 
 #def plot_epoch_markers(epochs, ax, timestamps):
@@ -336,7 +375,7 @@ def plot_pci_raw(df, device_idx, net):
         #plt.tight_layout() 
         plots.append((fig, ax))
         #plt.show()
-    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    #plt.savefig(fig_root/f"{net}-power-raw.pdf")
     return plots
 
 def plot_clock_raw(df, device_idx, net):
@@ -364,7 +403,7 @@ def plot_clock_raw(df, device_idx, net):
         #plt.tight_layout() 
         plots.append((fig, ax))
         #plt.show()
-    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    #plt.savefig(fig_root/f"{net}-power-raw.pdf")
     return plots
 
 def plot_temp_raw(df, device_idx, net):
@@ -390,7 +429,7 @@ def plot_temp_raw(df, device_idx, net):
         #plt.tight_layout() 
         plots.append((fig, ax))
         #plt.show()
-    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    #plt.savefig(fig_root/f"{net}-power-raw.pdf")
     return plots
 
 def plot_power_state_raw(df, device_idx, net):
@@ -416,59 +455,81 @@ def plot_power_state_raw(df, device_idx, net):
         #plt.tight_layout() 
         plots.append((fig, ax))
         #plt.show()
-    #plt.savefig(fig_root/f"{net}-power-raw.png")
+    #plt.savefig(fig_root/f"{net}-power-raw.pdf")
     return plots
 
 
 import matplotlib
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = 150
 mpl.rcParams['figure.figsize'] = 16, 9
+mpl.rcParams['lines.linewidth'] = 3.0
+mpl.rcParams["lines.markeredgewidth"] = 2
+mpl.rcParams['font.size'] = 16
+mpl.rcParams["lines.markersize"] = 10
+
 plt.style.use('seaborn-colorblind')
 matplotlib.use('Agg')
-fig_root = Path("../report/fig2")
+fig_root = Path("../report/fig3")
 fig_root.mkdir(parents=True, exist_ok=True)
 
-mnist_data_big = load_power_cap_data("../data/data-1.3.1", "mnist-big", epoch_count = 10)
-# mnist_data_big = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "mnist-big", epoch_count = 10)
+# mnist_data_big = load_power_cap_data("../data/data-1.3.1", "mnist-big", epoch_count = 10)
+# # mnist_data_big = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "mnist-big", epoch_count = 10)
 # mnist_data_big = pd.DataFrame(mnist_data_big)
 # plot_all(mnist_data_big, "mnist-big")
-plots = plot_temp_raw(mnist_data_big, devices[0], "mnist_big")
-#mpl.rcParams['figure.dpi'] = 300
-for fig, ax in plots:
-    fig.show()
+# # # plots = plot_temp_raw(mnist_data_big, devices[0], "mnist_big")
+# # # #mpl.rcParams['figure.dpi'] = 300
+# # # for fig, ax in plots:
+# # #     fig.show()
 
-plt.show()
-plots = plot_pci_raw(mnist_data_big, devices[0], "mnist_big")
-#mpl.rcParams['figure.dpi'] = 300
-for fig, ax in plots:
-    fig.show()
-plt.show()
-plots = plot_clock_raw(mnist_data_big, devices[0], "mnist_big")
-#mpl.rcParams['figure.dpi'] = 300
-for fig, ax in plots:
-    fig.show()
-plt.show()
+# # # plt.show()
+# # # plots = plot_pci_raw(mnist_data_big, devices[0], "mnist_big")
+# # # #mpl.rcParams['figure.dpi'] = 300
+# # # for fig, ax in plots:
+# # #     fig.show()
+# # # plt.show()
+# # # plots = plot_clock_raw(mnist_data_big, devices[0], "mnist_big")
+# # # #mpl.rcParams['figure.dpi'] = 300
+# # # for fig, ax in plots:
+# # #     fig.show()
+# # # plt.show()
 
-plots = plot_power_state_raw(mnist_data_big, devices[0], "mnist_big")
-#mpl.rcParams['figure.dpi'] = 300
-for fig, ax in plots:
-    fig.show()
-plt.show()
-input()
-plt.show()
-plt.show()
+# # # plots = plot_power_state_raw(mnist_data_big, devices[0], "mnist_big")
+# # # #mpl.rcParams['figure.dpi'] = 300
+# # # for fig, ax in plots:
+# # #     fig.show()
+# # # plt.show()
+# # # input()
+# # # plt.show()
+# # # plt.show()
 
+#45d4f713fd015f50e0b6e5afdd75a4bdde066eb2
 # mnist_data_small = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "mnist-2", epoch_count = 10)
+# mnist_data_small = load_power_cap_data("../data/45d4f713fd015f50e0b6e5afdd75a4bdde066eb2", "mnist-2", epoch_count = 10)
 # mnist_data_small = pd.DataFrame(mnist_data_small)
 # plot_all(mnist_data_small, "mnist_data_small")
 
 # # ecg_data = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "ecg", epoch_count = 10)
 # # ecg_data = pd.DataFrame(ecg_data)
 # # plot_all(ecg_data, "ecg_data")
-# # mnist_data_small = load_power_cap_data("../data/data-1.3.1", "mnist-2", epoch_count = 10)
-# # mnist_data_small = pd.DataFrame(mnist_data_small)
-# # plot_all(mnist_data_small, "mnist-small")
 
 # # # ecg_data = load_power_cap_data("../data/8951db562b4334491c8f5b7a35f2f06d72751a8d", "ecg", epoch_count = 10)
 # # # ecg_data = pd.DataFrame(ecg_data)
 # # # plot_all(ecg_data, "ecg")
+
+#new data
+
+mnist_data_small = load_power_cap_data("../data/45d4f713fd015f50e0b6e5afdd75a4bdde066eb2", "mnist-2", epoch_count = 10)
+mnist_data_small = pd.DataFrame(mnist_data_small)
+plot_all(mnist_data_small, "mnist-small")
+
+
+
+mnist_data_big = load_power_cap_data("../data/45d4f713fd015f50e0b6e5afdd75a4bdde066eb2", "mnist-big", epoch_count = 10)
+mnist_data_big = pd.DataFrame(mnist_data_big)
+plot_all(mnist_data_big, "mnist-big")
+
+
+
+ecg_data = load_power_cap_data("../data/413c573c6168b68ffa991f0c64d65d4ec7d01871", "ecg", epoch_count = 10)
+ecg_data = pd.DataFrame(ecg_data)
+plot_all(ecg_data, "ecg")

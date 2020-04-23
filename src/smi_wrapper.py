@@ -39,10 +39,9 @@ class ValueType(Enum):
 
 
 class GPU:
-    def __init__(self, index, smi_context):
+    def __init__(self, index):
         self.index = index
         self.handle = smi.nvmlDeviceGetHandleByIndex(index)
-        self.smi_context = smi_context
         self.last_sample_timestamps = {}
 
         """
@@ -58,18 +57,18 @@ class GPU:
 
         try:
             self.power_limit_constraints = smi.nvmlDeviceGetPowerManagementLimitConstraints(self.handle)
-        except smi.NVMLError_NotSupported:
+        except smi.NVML_ERROR_NOT_SUPPORTED:
             self.power_limit_constraints = None
 
         try:
             self.supported_clocks = self._get_supported_clocks()
-        except smi.NVMLError_NotSupported:
+        except smi.NVML_ERROR_NOT_SUPPORTED:
             self.supported_clocks = None
 
     def set_persistence_mode(self, enabled):
         try:
             smi.nvmlDeviceSetPersistenceMode(self.handle, 1 if enabled else 0)
-        except smi.NVMLError_NoPermission:
+        except smi.NVML_ERROR_NO_PERMISSION:
             return False
         return True
 
@@ -89,11 +88,11 @@ class GPU:
 
         return timestamp, data
 
-    def get_all_samples(self):
-        exclude = [SampleType.DecoderUtilization, SampleType.EncoderUtilization]
-        sample_types = set(SampleType) - set(exclude)
-        for sample_type in sample_types:
-            self.get_sample(sample_type)
+    # def get_all_samples(self):
+    #     exclude = [SampleType.DecoderUtilization, SampleType.EncoderUtilization]
+    #     sample_types = set(SampleType) - set(exclude)
+    #     for sample_type in sample_types:
+    #         self.get_sample(sample_type)
 
     def get_utilization(self):
         """
@@ -129,9 +128,26 @@ class GPU:
         return smi.nvmlDeviceGetPowerUsage(self.handle)
 
     def get_temperature(self):
+        """:returns int"""
         return smi.nvmlDeviceGetTemperature(self.handle, smi.NVML_TEMPERATURE_GPU)
 
     def get_pci_tx(self):
+        """
+        Retrieve PCIe utilization information.
+        This function is querying a byte counter over a 20ms interval
+        and thus is the PCIe throughput over that interval.
+
+        MAXWELL_OR_NEWER
+        This method is not supported in virtual machines running virtual GPU (vGPU).
+
+        :raises smi.NVML_ERROR_UNINITIALIZED: if the library has not been successfully initialized
+        :raises smi.NVML_ERROR_INVALID_ARGUMENT: if device or counter is invalid, or value is NULL
+        :raises smi.NVML_ERROR_NOT_SUPPORTED: if the device does not support this feature
+        :raises smi.NVML_ERROR_GPU_IS_LOST:  if the target GPU has fallen off the bus or is otherwise inaccessible
+        :raises smi.NVML_ERROR_UNKNOWN: on any unexpected error
+
+        :returns int
+        """
         return smi.nvmlDeviceGetPcieThroughput(self.handle, smi.NVML_PCIE_UTIL_TX_BYTES)
 
     def get_pci_rx(self):
@@ -199,15 +215,15 @@ class GPU:
         data = {
             "gpu-index": self.index
             , "timestamp": str(datetime.now())
-            , "util-gpu": util.gpu
-            , "util-mem": util.mem
+            , "util-gpu": self.get_sample(SampleType.GpuUtilization)
+            , "util-mem": self.get_sample(SampleType.MemoryUtilization)
 
-            , "clock-mem": self.get_memory_clock()
-            , "clock-sm": self.get_sm_clock()
+            , "clock-mem": self.get_sample(SampleType.MemoryClock)
+            , "clock-gpu": self.get_sample(SampleType.GpuClock)
 
-            , "power-state": self.get_power_state()
+            # , "power-state": self.get_power_state()
 
-            , "power": self.get_power_usage()
+            , "power": self.get_sample(SampleType.TotalPower)
             , "tmp": self.get_temperature()
             , "pci-tx": self.get_pci_tx()
             , "pci-rx": self.get_pci_rx()
@@ -216,9 +232,9 @@ class GPU:
 
 
 class SMIWrapper:
-    def __init__(self):
+    def __init__(self, selected_devices=None):
         self.gpus = []
-        self.num_devices = 0
+        self.selected_devices = selected_devices
 
     def open(self):
         self.__enter__()
@@ -226,13 +242,12 @@ class SMIWrapper:
     def close(self):
         self.__exit__()
 
-    def init_handles(self):
-        self.num_devices = smi.nvmlDeviceGetCount()
-        self.gpus = [GPU(i, self) for i in range(self.num_devices)]
-
     def __enter__(self):
         smi.nvmlInit()
-        self.init_handles()
+        if self.selected_devices is None:
+            self.selected_devices = range(smi.nvmlDeviceGetCount())
+        self.gpus = [GPU(i) for i in self.selected_devices]
+
         return self
 
     def __exit__(self, *argc, **kwargs):

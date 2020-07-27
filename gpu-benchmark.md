@@ -149,17 +149,25 @@ wie viel energie spart transferlearning
 
 
 ### Experiments
-- run to completion vs. langsam rechnen (powercap + linreg compare) eigentlich auch für mehrere versch. netze
-- Batchsize vs. Power
+- run to completion vs. langsam rechnen (powercap + linreg compare) eigentlich auch für mehrere versch. netze -- warum?
+- clock-settings
 - Tensorflow speicher begrenzen vs. Theoretischer speicher bedarf
     - stromverbrauch und zeit bei weniger speicher
-- cpu vs. gpu inference (mit VGG)
-- deep learning workload verschiedene netztypen  toy vs. telemed vs. complex
-  
+- noch mehr verschiedene netztypen
+- noch mehr wiederholungen
+- Batchsize vs. Power
+- --cpu vs. gpu inference (mit VGG)--
+
+
+## weitere analysen
+
+- temperatur verlauf
+- clocks
+- pcie-auslastung
 
 ### Störeinflüsse
 - System grundrauschen verringern ?
-- Variabilität Initial Gewichte, Dropout >> random seed festlegen
+- Variabilität Initial Gewichte, Dropout >> random seed festlegen; daten nicht shufflen
 
 ### Messtechnik
 - IPMI funktioniert
@@ -167,6 +175,7 @@ wie viel energie spart transferlearning
 - Rapl geht theoretisch; muss noch verstanden werden
   - via perf stat 
   - via powerstat
+- GPU Spannung messen mit Arduino
 
 ### Future Work
 #### Multi Tennancy GPU

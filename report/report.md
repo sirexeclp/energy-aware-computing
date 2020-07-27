@@ -346,7 +346,7 @@ The energy savings on the lowest possible power limit (150W) outweigh the increa
 This behavior could be shown for two different network architectures, belonging to the family of cov/resnets.
 Small networks with power draw always below the lowest power limit can not be optimized using this method.
 
-For the tested networks a quadratic relations between power limit and energy, time and EDP have been shown.
+For the tested networks quadratic relations between power limit and energy, time and EDP have been shown.
 
 
 \newpage

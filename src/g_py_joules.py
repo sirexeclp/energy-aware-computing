@@ -2,10 +2,9 @@ import os
 import runpy
 import argparse
 import sys
-from .smi_wrapper import SMIWrapper
 from enum import Enum
 
-from . import patch_keras
+from src import patch_keras
 
 
 def parse_args():
@@ -24,7 +23,7 @@ def parse_args():
     parser.add_argument("-pl", "--power-limit", type=int, default=None
                         , help='Set power-limit before starting the training.')
 
-    parser.add_argument("-v", "--visible-devices", type=str, default=None
+    parser.add_argument("-v", "--visible-devices", type=int, default=None
                         , help='Set CUDA_VISIBLE_DEVICES environment variable.')
 
     parser.add_argument("module_name", type=str, help="Module to execute.")
@@ -55,17 +54,17 @@ if __name__ == '__main__':
     sys.argv = new_args
 
     if args.visible_devices is not None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = args.visible_devices
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.visible_devices)
 
     tf_log_level = TfLogLevel.no_warning.value
     if tf_log_level:
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = tf_log_level
 
-    if args.power_limit is not None:
-        SMIWrapper.set_power_limit(args.power_limit)
+    # if args.power_limit is not None:
+    #     SMIWrapper.set_power_limit(args.power_limit)
 
     # patch keras
-    patch_keras.patch(args.data_directory, args.predict_energy)
+    patch_keras.patch(args.data_directory, args.predict_energy, args.visible_devices)
 
     # chdir if requested
     if args.working_directory is not None:

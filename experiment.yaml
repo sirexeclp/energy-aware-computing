@@ -1,0 +1,15 @@
+---
+  experiment_name: "power limit"
+  devices: "0"
+  power_limits:
+    - 150
+    - 200
+    - 250
+    - 300
+  clock_limits:
+    - [1, 2]
+  data_path: /tmp/data-test
+  benchmarks:
+    - mnist
+
+

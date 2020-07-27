@@ -2,17 +2,22 @@
 # To add a new markdown cell, type '# %% [markdown]'
 
 # %%
-import nvidia_smi as smi
+from typing import List, Tuple
 import subprocess
 import time
 from datetime import datetime
 from collections import namedtuple
 from pathlib import Path
 import pandas as pd
-from smi_wrapper import GPU, SMIWrapper, Utilization
+from device import Device, PowerLimit, ApplicationClockLimit
+from pynvml import NVMLLib
+# from smi_wrapper import GPU, SMIWrapper, Utilization
 from random import shuffle
 import copy
 # %%
+from system import System
+import yaml
+
 WARMUP = 5 #warmup in seconds
 VISIBLE_DEVICES="3"
 
@@ -164,24 +169,110 @@ def run_all_clocks(data_root, repititions):
 #                 args = ["-c", str(c), "-n", str(d), "-b", str(b)]
 #                 asyncio.run(run_experiment(data_path, "./", "mnist_cnn", args))
 
+def gather_info(device):
+    # gather device info
+    device_name = device.get_name()
+    cuda_capability = device.get_cuda_compute_capability()
+
+    # gather system infos
+    system = System()
+    driver_version = system.get_driver_version()
+    cuda_version = system.get_cuda_driver_version()
+    nvml_version = system.get_nvml_version()
+
+    return {
+        "device-name": device_name
+
+    }
+
+
+def load_experiment_definition():
+
+    with open("../experiment.yaml", 'r') as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+            return
+
+    return config
+
+
+def load_benchmark_definition(path):
+    with open(path) as f:
+        try:
+            benchmark = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            print(e)
+            return
+    benchmark["benchmark_name"] = Path(path).stem
+    print(benchmark)        
+    return benchmark
+
+
+
+def run_experiment(device_index: int, data_path: str, working_directory: str, module: str,
+                   args: List[str], power_limit: int, clocks: Tuple[int, int],
+                   experiment_name: str = None, benchmark_name: str = None):
+    data_path = Path(data_path)
+    data_path.mkdir(parents=True)
+
+    with NVMLLib() as lib:
+        # get device
+        device = Device.from_index(device_index)
+
+        info = gather_info(device)
+
+        # set constraints
+        limit = PowerLimit(device, power_limit)
+        clocks = ApplicationClockLimit(device, *clocks)
+        #with limit, clocks:
+        args = ["python3", "-m", "g_py_joules", "-d", str(data_path.absolute()), "-e",
+                "-v", str(device_index), "-w", str(working_directory), module, "--"] + args
+        print(args)
+        p = subprocess.Popen(args)
+        while p.poll() is None:
+            time.sleep(1)
+
 
 if __name__ == "__main__":
-    from git import Repo
-    
-    repo = Repo("../")
-    current_tag = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
+    benchmarks_dir = "../benchmarks"
+    experiment = load_experiment_definition()
 
-    #assert current_tag is not None, "Error: Need a tagged commit to be checked out!"
-    if current_tag is not None:
-        data_path = Path("../data") / str(current_tag.name)
-    else:
-        data_path = Path("../data") / str(repo.head.commit.hexsha)
-    data_path.mkdir(parents=True, exist_ok=False)
+    benchmarks = []
+    for bench in experiment["benchmarks"]:
+        path = Path(benchmarks_dir) / bench
+        path = path.with_suffix(".yaml")
+        benchmarks.append(load_benchmark_definition(path))
 
-    run_all_power_cap_corse(data_path, 10)
+    for bench in benchmarks:
+        for power_limit in experiment["power_limits"]:
+            # run_experiment()
+            config = {**experiment, **bench}
+            del config["power_limits"]
+            del config["clock_limits"]
+            del config["benchmarks"]
+            config["power_limit"] = power_limit
+            config["device_index"] = int(config.pop("devices"))
+            config["clocks"] = (None, None)
+            run_experiment(**config)
 
-    #run_all_clocks(data_path, 5)
-
-    # reset clocks, when done
-    SMIWrapper.set_clocks(None)
-    SMIWrapper.set_power_limit(None)
+    # from git import Repo
+    #
+    # repo = Repo("../")
+    # current_tag = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
+    #
+    # #assert current_tag is not None, "Error: Need a tagged commit to be checked out!"
+    # if current_tag is not None:
+    #     data_path = Path("../data") / str(current_tag.name)
+    # else:
+    #     data_path = Path("../data") / str(repo.head.commit.hexsha)
+    # data_path.mkdir(parents=True, exist_ok=False)
+    #
+    # run_all_power_cap_corse(data_path, 10)
+    #
+    # #run_all_clocks(data_path, 5)
+    #
+    # # reset clocks, when done
+    # SMIWrapper.set_clocks(None)
+    # SMIWrapper.set_power_limit(None)

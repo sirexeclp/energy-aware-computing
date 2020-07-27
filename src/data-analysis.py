@@ -84,7 +84,7 @@ plt.bar(np.arange(len(energy_epoch)),energy_epoch)
 # %%
 predictions = []
 actual = calculate_total_energy_experiment(power_data,[0])
-for i in range(1,power_data.t_info.get_epoch_count()):
+for i in range(1, power_data.t_info.epoch_count):
     pred = predict_energy(power_data,[0],i)
     predictions.append(pred)
 
@@ -129,7 +129,7 @@ for c in dense_count:
             energy = get_energy_per_epoch(power_data)
             # take average energy, exclude first epoch
             energy = np.mean(energy[1:])
-            time = power_data.t_info.get_time_per_epoch()
+            time = power_data.t_info.time_per_epoch()
             time = np.mean(time[1:])
             tmp = {
                 "dense_count":c
@@ -210,15 +210,15 @@ for p in power_caps:
     data_path = list(data_root.glob(f"{description}*"))[0]
     
     power_data = PowerData.load(data_path)
-    assert power_data.t_info.get_epoch_count() == epoch_count, "Unexpected Number of epochs!"
+    assert power_data.t_info.epoch_count() == epoch_count, "Unexpected Number of epochs!"
     energy = get_energy_per_epoch(power_data)#calculate_total_energy(power_data, ["power"],start=t_info.get_epoch_begin(2))
     energy = np.mean(energy[1:])
-    time = power_data.t_info.get_time_per_epoch()
+    time = power_data.t_info.time_per_epoch()
     time = np.mean(time[1:])
-    total_time =power_data.t_info.get_total_experiment_duration() / np.timedelta64(1,"s")
+    total_time = power_data.t_info.total_experiment_duration() / np.timedelta64(1, "s")
     total_energy = calculate_total_energy(power_data, [0]
-                    ,start=power_data.t_info.get_train_begin()
-                    , end=power_data.t_info.get_train_end())
+                                          , start=power_data.t_info.train_begin()
+                                          , end=power_data.t_info.train_end())
     edp = total_energy * total_time
     gpu0 = power_data.power_gpu[power_data.power_gpu["gpu-index"] == 0]
     voltage = np.sqrt(gpu0.power / (gpu0["util-gpu"] * gpu0["clock-sm"]))
@@ -229,8 +229,8 @@ for p in power_caps:
         , "total_time":total_time
         , "total_energy":total_energy
         , "cum_energy":calculate_total_cumulative_energy(power_data, [0]
-                    ,start=power_data.t_info.get_train_begin()
-                    , end=power_data.t_info.get_train_end())[0]
+                                                         , start=power_data.t_info.train_begin()
+                                                         , end=power_data.t_info.train_end())[0]
         , "edp": edp
         ,"voltage": voltage
     }
@@ -277,11 +277,11 @@ plt.ylabel("Execution Time [$s$]")
 gpu0 = power_data.power_gpu[power_data.power_gpu["gpu-index"] == 0]
 cum_energy = get_cumulative_energy(gpu0.power, gpu0.timestamp)
 plt.plot(gpu0.timestamp,cum_energy)
-a,b,c = zip(*power_data.epochs())
+a,b,c = zip(*power_data.iter_epochs())
 plt.plot(b, np.full(len(b),0.5),"x")
 
 # %%
-epochs = np.array(list(power_data.epochs(1)))
+epochs = np.array(list(power_data.iter_epochs(1)))
 e_times = np.array(epochs[:,2] - epochs[:,1], dtype=np.timedelta64) / np.timedelta64(1, 's')
 plt.hist(e_times)
 #e_times
@@ -314,23 +314,23 @@ def load_power_cap_data(data_root, network, epoch_count):
             #print(description)
             data_path = list(run.glob(f"{description}*"))[0]
             power_data = PowerData.load(data_path)
-            assert power_data.t_info.get_epoch_count() == epoch_count, "Unexpected Number of epochs!"
+            assert power_data.t_info.epoch_count() == epoch_count, "Unexpected Number of epochs!"
             epoch_energy = get_energy_per_epoch(power_data, devices=devices)
             energy = np.mean(epoch_energy[1:])
            
-            epoch_times = power_data.t_info.get_time_per_epoch()
+            epoch_times = power_data.t_info.time_per_epoch()
             mean_time = np.mean(epoch_times[1:])
             
-            total_time = power_data.t_info.get_total_experiment_duration() / np.timedelta64(1,"s")
+            total_time = power_data.t_info.total_experiment_duration() / np.timedelta64(1, "s")
             total_energy = calculate_total_energy(power_data, devices=devices
-                            ,start=power_data.t_info.get_train_begin()
-                            , end=power_data.t_info.get_train_end())
+                                                  , start=power_data.t_info.train_begin()
+                                                  , end=power_data.t_info.train_end())
             
             edp = total_energy * total_time
 
             cum_energy = calculate_total_cumulative_energy(power_data, devices=devices
-                            ,start=power_data.t_info.get_train_begin()
-                            , end=power_data.t_info.get_train_end())[0]
+                                                           , start=power_data.t_info.train_begin()
+                                                           , end=power_data.t_info.train_end())[0]
 
             tmp = {
                 "power_cap":cap
@@ -377,7 +377,7 @@ def plot_power_raw(df, device_idx, net):
         current_ax.plot(timestamps, device.power)
         current_ax.set_ylim(0,310)
 
-        for i, epoch_begin, _ in power_data.t_info.epochs():
+        for i, epoch_begin, _ in power_data.t_info.iter_epochs():
             epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
             current_ax.axvline(x=epoch_ts,color='orange',linestyle='--')
     current_ax.set_ylabel("Power [W]")

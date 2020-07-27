@@ -3,3 +3,8 @@ pandas
 numpy
 seaborn
 matplotlib
+gitpython
+tensorflow-gpu
+pint
+pytest
+sklearn

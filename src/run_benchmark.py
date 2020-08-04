@@ -18,6 +18,8 @@ import copy
 from system import System
 import yaml
 
+from src.system_info import SystemInfo
+
 WARMUP = 5 #warmup in seconds
 VISIBLE_DEVICES="3"
 
@@ -169,23 +171,6 @@ def run_all_clocks(data_root, repititions):
 #                 args = ["-c", str(c), "-n", str(d), "-b", str(b)]
 #                 asyncio.run(run_experiment(data_path, "./", "mnist_cnn", args))
 
-def gather_info(device):
-    # gather device info
-    device_name = device.get_name()
-    cuda_capability = device.get_cuda_compute_capability()
-
-    # gather system infos
-    system = System()
-    driver_version = system.get_driver_version()
-    cuda_version = system.get_cuda_driver_version()
-    nvml_version = system.get_nvml_version()
-
-    return {
-        "device-name": device_name
-
-    }
-
-
 def load_experiment_definition():
 
     with open("../experiment.yaml", 'r') as stream:
@@ -221,7 +206,7 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
         # get device
         device = Device.from_index(device_index)
 
-        info = gather_info(device)
+        SystemInfo.gather(device).save(data_path / "system_info.json")
 
         # set constraints
         limit = PowerLimit(device, power_limit)
@@ -247,7 +232,6 @@ if __name__ == "__main__":
 
     for bench in benchmarks:
         for power_limit in experiment["power_limits"]:
-            # run_experiment()
             config = {**experiment, **bench}
             del config["power_limits"]
             del config["clock_limits"]

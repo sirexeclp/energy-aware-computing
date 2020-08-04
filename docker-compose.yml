@@ -6,6 +6,9 @@ services:
 #      dockerfile: dockerfile
 #      args:
 #        buildno: 1
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=1
     volumes:
     - .:/code
 

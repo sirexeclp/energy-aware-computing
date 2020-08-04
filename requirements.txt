@@ -8,3 +8,4 @@ tensorflow-gpu
 pint
 pytest
 sklearn
+distro

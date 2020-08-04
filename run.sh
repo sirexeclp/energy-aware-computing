@@ -1,2 +1,2 @@
-cd src
-sudo python3 -m run_benchmark
+cd $0/src
+python3 -m run_benchmark

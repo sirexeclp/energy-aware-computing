@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  energy-benchmark:
+    build:
+      context: .
+#      dockerfile: dockerfile
+#      args:
+#        buildno: 1
+    volumes:
+    - .:/code
+
+#volumes:
+#  logvolume01: {}

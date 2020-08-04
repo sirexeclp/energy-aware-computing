@@ -4,7 +4,7 @@ numpy
 seaborn
 matplotlib
 gitpython
-tensorflow-gpu
+# tensorflow-gpu
 pint
 pytest
 sklearn

@@ -14,7 +14,7 @@ from random import shuffle
 import copy
 import yaml
 
-from src.system_info import SystemInfo
+from system_info import SystemInfo
 
 WARMUP = 5 #warmup in seconds
 VISIBLE_DEVICES="3"

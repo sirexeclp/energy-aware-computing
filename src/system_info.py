@@ -1,11 +1,12 @@
-from dataclasses import dataclass, asdict
 import json
-from system import System
 import platform
-import distro
-from typing import List
-import pip
 import sys
+from dataclasses import dataclass, asdict
+from typing import List, Tuple
+
+import distro
+import pkg_resources
+
 
 @dataclass
 class SystemInfo:
@@ -21,11 +22,12 @@ class SystemInfo:
     machine: str
     distro: str
     python_version: str
-    pip_packages: List[str]
+    pip_packages: List[Tuple[str, str]]
+    # supported_sampling_types: List[str]
 
     @classmethod
     def gather(cls, device):
-        system = System()
+        system = device.lib.system
         info = cls(
             device_name=device.get_name(),
             cuda_capability=device.get_cuda_compute_capability(),
@@ -39,7 +41,7 @@ class SystemInfo:
             machine=platform.machine(),
             distro=distro.lsb_release_info(),
             python_version=sys.version,
-            pip_packages=list(pip.get_installed_distributions(local_only=True))
+            pip_packages=[(x.project_name, x.version) for x in pkg_resources.working_set]
         )
         return info
 

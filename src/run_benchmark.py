@@ -9,13 +9,9 @@ from datetime import datetime
 from collections import namedtuple
 from pathlib import Path
 import pandas as pd
-from device import Device, PowerLimit, ApplicationClockLimit
-from pynvml import NVMLLib
-# from smi_wrapper import GPU, SMIWrapper, Utilization
+from pynvml3 import NVMLLib, Device, PowerLimit, ApplicationClockLimit
 from random import shuffle
 import copy
-# %%
-from system import System
 import yaml
 
 from src.system_info import SystemInfo
@@ -204,7 +200,7 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
 
     with NVMLLib() as lib:
         # get device
-        device = Device.from_index(device_index)
+        device = lib.device.from_index(device_index)
 
         SystemInfo.gather(device).save(data_path / "system_info.json")
 

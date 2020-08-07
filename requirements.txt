@@ -8,4 +8,4 @@ pint
 pytest
 sklearn
 distro
--e git+https://github.com/sirexeclp/nvidia-ml-py3.git
+-e git+https://github.com/sirexeclp/nvidia-ml-py3.git#egg=pynvml3

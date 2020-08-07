@@ -1,4 +1,3 @@
-nvidia-ml-py3
 pandas
 numpy
 seaborn
@@ -9,3 +8,4 @@ pint
 pytest
 sklearn
 distro
+-e git+https://github.com/sirexeclp/nvidia-ml-py3.git

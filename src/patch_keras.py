@@ -1,9 +1,10 @@
 import warnings
 
 # with warnings.catch_warnings():
-from device import Device
-from enums import TemperatureSensors, PcieUtilCounter, SamplingType
-from pynvml import NVMLLib
+from pynvml3 import Device
+from pynvml3 import TemperatureSensors, PcieUtilCounter, SamplingType
+from pynvml3 import NVMLLib
+from pynvml3.errors import NVMLErrorNotFound
 
 warnings.filterwarnings('ignore')
 import tensorflow
@@ -142,24 +143,41 @@ class SampleCollector:
         df = pd.DataFrame(self.data)
         df.to_csv(path)
 
+    def test(self, device):
+        try:
+            # first call sometimes works but then the second will fail; idk why.
+            self.collect(device)
+            self.collect(device)
+            print(f"{self.sample_type}: OK")
+            return True
+        except NVMLErrorNotFound as e:
+            print(f"{self.sample_type} not supported on this device!")
+            return False
 
 
 def collect_power_data(data_path, done, get_data, data, visible_devices):
     gpu_data = []
-    util_gpu = SampleCollector(SamplingType.GPU_UTILIZATION_SAMPLES)
-    util_mem = SampleCollector(SamplingType.MEMORY_UTILIZATION_SAMPLES)
-    clock_mem = SampleCollector(SamplingType.MEMORY_CLK_SAMPLES)
-    clock_gpu = SampleCollector(SamplingType.PROCESSOR_CLK_SAMPLES)
-    total_power = SampleCollector(SamplingType.TOTAL_POWER_SAMPLES)
-
-    collectors = [util_gpu, util_mem, total_power, clock_gpu, clock_mem]
+    collectors = []
+    sampling_types = [
+        SamplingType.GPU_UTILIZATION_SAMPLES,
+        SamplingType.MEMORY_UTILIZATION_SAMPLES,
+        SamplingType.MEMORY_CLK_SAMPLES,
+        SamplingType.PROCESSOR_CLK_SAMPLES,
+        SamplingType.TOTAL_POWER_SAMPLES]
 
     data_path = Path(data_path)
     data_path.mkdir(parents=True, exist_ok=True)
     gpu_data_path = data_path / "gpu-power.csv"
 
     with NVMLLib() as lib:
-        device = Device.from_index(visible_devices)
+        device = lib.device.from_index(visible_devices)
+
+        # collector = [c:=SampleCollector(st) for st in sampling_types if c.test(device)]
+        for st in sampling_types:
+            collector = SampleCollector(st)
+            if collector.test(device):
+                collectors.append(collector)
+
         print("start recording")
         while not done.is_set():
             gpu_data.append(get_all_stats(device))
@@ -176,6 +194,7 @@ def collect_power_data(data_path, done, get_data, data, visible_devices):
         df.mean()
         for collector in collectors:
             collector.to_csv(data_path)
+
 
 def patch(data_root, enable_energy, visible_devices):
     timestamp_log_path = get_log_path(data_root)

@@ -1,7 +1,6 @@
 import json
 import platform
 import sys
-from dataclasses import dataclass, asdict
 from typing import List, Tuple, NamedTuple
 
 import distro

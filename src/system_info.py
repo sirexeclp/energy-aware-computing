@@ -2,14 +2,13 @@ import json
 import platform
 import sys
 from dataclasses import dataclass, asdict
-from typing import List, Tuple
+from typing import List, Tuple, NamedTuple
 
 import distro
 import pkg_resources
 
 
-@dataclass
-class SystemInfo:
+class SystemInfo(NamedTuple):
     """Dataclass with System Information"""
     device_name: str
     cuda_capability: str
@@ -46,5 +45,5 @@ class SystemInfo:
         return info
 
     def save(self, path):
-        with open(path,"w") as f:
-            json.dump(asdict(self), f)
+        with open(path, "w") as f:
+            json.dump(self._asdict(), f)

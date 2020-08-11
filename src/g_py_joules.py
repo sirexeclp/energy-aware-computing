@@ -4,7 +4,7 @@ import argparse
 import sys
 from enum import Enum
 
-from src import patch_keras
+import patch_keras
 
 
 def parse_args():

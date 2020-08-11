@@ -196,7 +196,7 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
                    args: List[str], power_limit: int, clocks: Tuple[int, int],
                    experiment_name: str = None, benchmark_name: str = None):
     data_path = Path(data_path)
-    data_path.mkdir(parents=True)
+    data_path.mkdir(parents=True, exist_ok=True)
 
     with NVMLLib() as lib:
         # get device
@@ -208,7 +208,7 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
         limit = PowerLimit(device, power_limit)
         clocks = ApplicationClockLimit(device, *clocks)
         #with limit, clocks:
-        args = ["python3", "-m", "g_py_joules", "-d", str(data_path.absolute()), "-e",
+        args = ["python3", "-m", "g_py_joules", "-d", str(data_path.absolute()),# "-e",
                 "-v", str(device_index), "-w", str(working_directory), module, "--"] + args
         print(args)
         p = subprocess.Popen(args)

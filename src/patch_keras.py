@@ -146,18 +146,17 @@ class ProcessTimer(abc.ABC):
         pass
 
     def _run(self):
-        iter_start = time.time()
         self._on_start()
         while not self._stop.is_set():
+            iter_start = time.time()
             self._on_tick(self.args, self.kwargs)
             now = time.time()
             sleep_time = self.interval - (now - self.last_time)
             if (now - iter_start) > self.interval:
-                print(f"WARNING: can't keep up { (now - iter_start)}s")
+                print(f"WARNING: can't keep up {(now - iter_start)}s")
                 # TODO: log that we are running late
             self.last_time = now
             time.sleep(max(sleep_time, 0))
-            self._run()
         self._on_stop()
 
 
@@ -170,10 +169,6 @@ class Collector(ProcessTimer):
         self.device: Device = None
         self.path = Path(path)
 
-    def stop(self):
-        super(Collector, self).stop()
-        self._save()
-
     def _on_start(self):
         self.lib = NVMLLib()
         self.lib.open()
@@ -182,15 +177,21 @@ class Collector(ProcessTimer):
     def _on_stop(self):
         self.device = None
         self.lib.close()
+        self._save()
 
     @abc.abstractmethod
     def _get_save_path(self):
         pass
 
     def _save(self):
+        # print(f"[saving] {self.__class__.__name__}")
+        # print(self.get_len())
         path = self._get_save_path()
         df = pd.DataFrame(self.data)
         df.to_csv(path)
+
+    def get_len(self):
+        return len(self.data)
 
 
 class SampleCollector(Collector):
@@ -238,8 +239,8 @@ class SlowCollector(Collector):
 
             , "clock-mem": self.device.get_clock(ClockType.MEM, ClockId.CURRENT)
             , "clock-gpu": self.device.get_clock(ClockType.SM, ClockId.CURRENT)
-            #
-            , "power-state": self.device.get_power_state().value  # int representation to save on storage size
+            # int representation to save on storage size
+            , "power-state": self.device.get_power_state().value
             #
             , "power": self.device.get_power_usage()
             , "tmp": self.device.get_temperature(TemperatureSensors.TEMPERATURE_GPU)
@@ -247,9 +248,10 @@ class SlowCollector(Collector):
             , "pci-rx": self.device.get_pcie_throughput(PcieUtilCounter.RX_BYTES)
         }
         self.data.append(data)
-        if not data_event.is_set():
+        # print(self.get_len())
+        if data_event.is_set():
             data_queue.put(self.data)
-            data_event.set()
+            data_event.clear()
 
 
 class CollectorManager:
@@ -302,7 +304,6 @@ def patch(data_root, enable_energy, visible_devices):
     ]
 
     sampling_manager = CollectorManager(data_root, visible_devices)
-    sampling_manager.add_by_sampling_type(sampling_types, interval=1.5)
 
     data_event = Event()
     data_queue = Queue()
@@ -311,6 +312,9 @@ def patch(data_root, enable_energy, visible_devices):
                                        interval=0.5,
                                        path=data_root,
                                        args=(data_event, data_queue)))
+
+    sampling_manager.add_by_sampling_type(sampling_types, interval=1.5)
+
     sampling_manager.start()
 
     @atexit.register

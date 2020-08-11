@@ -197,8 +197,8 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
                    args: List[str], power_limit: int, clocks: Tuple[int, int],
                    experiment_name: str = None, benchmark_name: str = None):
     data_path = Path(data_path) / experiment_name
-    data_path = data_path / f"{power_limit}W"
     data_path = data_path / benchmark_name
+    data_path = data_path / f"{power_limit}W"
     data_path.mkdir(parents=True, exist_ok=False)
 
     with NVMLLib() as lib:

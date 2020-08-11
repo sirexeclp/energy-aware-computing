@@ -1,7 +1,8 @@
-version: "3.3"
+version: "2.3"
 services:
   energy-benchmark:
-    runtime: nvidia
+    user: "$UID"
+    runtime: "nvidia"
     environment:
       - NVIDIA_VISIBLE_DEVICES=1
     build:
@@ -11,6 +12,7 @@ services:
 #        buildno: 1
     volumes:
     - .:/code
+    - ./data-test:/tmp/data-test
 
 #volumes:
 #  logvolume01: {}

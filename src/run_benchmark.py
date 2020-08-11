@@ -2,6 +2,7 @@
 # To add a new markdown cell, type '# %% [markdown]'
 
 # %%
+import random
 from typing import List, Tuple
 import subprocess
 import time
@@ -195,8 +196,10 @@ def load_benchmark_definition(path):
 def run_experiment(device_index: int, data_path: str, working_directory: str, module: str,
                    args: List[str], power_limit: int, clocks: Tuple[int, int],
                    experiment_name: str = None, benchmark_name: str = None):
-    data_path = Path(data_path)
-    data_path.mkdir(parents=True, exist_ok=True)
+    data_path = Path(data_path) / experiment_name
+    data_path = data_path / f"{power_limit}W"
+    data_path = data_path / benchmark_name
+    data_path.mkdir(parents=True, exist_ok=False)
 
     with NVMLLib() as lib:
         # get device
@@ -216,6 +219,12 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
             time.sleep(1)
 
 
+def randomly(seq):
+    shuffled = list(seq)
+    random.shuffle(shuffled)
+    return shuffled
+
+
 if __name__ == "__main__":
     benchmarks_dir = "../benchmarks"
     experiment = load_experiment_definition()
@@ -226,12 +235,14 @@ if __name__ == "__main__":
         path = path.with_suffix(".yaml")
         benchmarks.append(load_benchmark_definition(path))
 
-    for bench in benchmarks:
-        for power_limit in experiment["power_limits"]:
+    for benchmark_name, bench in zip(experiment["benchmarks"], benchmarks):
+        # iterate randomly over power limits
+        for power_limit in randomly(experiment["power_limits"]):
             config = {**experiment, **bench}
             del config["power_limits"]
             del config["clock_limits"]
             del config["benchmarks"]
+            config["benchmark_name"] = benchmark_name
             config["power_limit"] = power_limit
             config["device_index"] = int(config.pop("devices"))
             config["clocks"] = (None, None)

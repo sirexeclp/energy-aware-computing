@@ -11,5 +11,6 @@
   data_path: /tmp/data-test
   benchmarks:
     - mnist
+    - resnet
 
 

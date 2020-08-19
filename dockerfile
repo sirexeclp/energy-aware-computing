@@ -10,7 +10,7 @@ RUN  rm requirements.txt
 ARG uid
 RUN echo "using uid: $uid"
 
-RUN adduser user --uid --disabled-password $uid && adduser user sudo
+RUN adduser user --disabled-password --uid $uid && adduser user sudo
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER user
 

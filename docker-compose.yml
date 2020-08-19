@@ -10,7 +10,7 @@ services:
 #      dockerfile: dockerfile
       args:
         uid: "$UID"
-        group_id: "$GROUPS"
+        group_id: "$GID"
 #       buildno: 1
     volumes:
     - .:/code

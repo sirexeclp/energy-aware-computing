@@ -8,9 +8,10 @@ RUN pip3 install -r requirements.txt
 RUN  rm requirements.txt
 
 ARG uid
+ARG group_id
 RUN echo "using uid: $uid"
 
-RUN adduser user --disabled-password --uid $uid && adduser user sudo
+RUN adduser user --disabled-password --uid $uid --group $group_id && adduser user sudo
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER user
 

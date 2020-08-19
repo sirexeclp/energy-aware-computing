@@ -8,8 +8,9 @@ services:
     build:
       context: .
 #      dockerfile: dockerfile
-#      args:
-#        buildno: 1
+      args:
+        uid: "$UID"
+#       buildno: 1
     volumes:
     - .:/code
     - ./data-test:/tmp/data-test

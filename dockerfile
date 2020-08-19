@@ -11,7 +11,9 @@ ARG uid
 ARG group_id
 RUN echo "using uid: $uid"
 
-RUN adduser user --disabled-password --uid $uid --group $group_id && adduser user sudo
+RUN addgroup --gid $group_id usergroup\
+        adduser user --disabled-password --uid $uid --gid $group_id &&\
+        adduser user sudo
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER user
 

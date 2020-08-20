@@ -217,9 +217,13 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
             args = ["python3", "-m", "g_py_joules", "-d", str(data_path.absolute()),# "-e",
                     "-v", str(device_index), "-w", str(working_directory), module, "--"] + args
             print(args)
-            p = subprocess.Popen(args)
-            while p.poll() is None:
-                time.sleep(1)
+            try:
+                p = subprocess.Popen(args)
+                while p.poll() is None:
+                    time.sleep(1)
+            except Exception as e:
+                p.kill()
+                raise e
 
 
 def randomly(seq):

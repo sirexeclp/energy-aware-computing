@@ -40,7 +40,8 @@ class SystemInfo(NamedTuple):
             applications_clock_target_sm=device.get_clock(ClockType.SM, ClockId.APP_CLOCK_TARGET),
             max_boost_clock_sm=device.get_clock(ClockType.SM, ClockId.CUSTOMER_BOOST_MAX),
             applications_clock_target_mem=device.get_clock(ClockType.MEM, ClockId.APP_CLOCK_TARGET),
-            max_boost_clock_mem=device.get_clock(ClockType.MEM, ClockId.CUSTOMER_BOOST_MAX),
+            # not supported on dgx1
+            # max_boost_clock_mem=device.get_clock(ClockType.MEM, ClockId.CUSTOMER_BOOST_MAX),
             # gather system infos
             driver_version=system.get_driver_version(),
             cuda_version=system.get_cuda_driver_version(),

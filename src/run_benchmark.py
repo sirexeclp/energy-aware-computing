@@ -250,7 +250,8 @@ if __name__ == "__main__":
             del config["clock_limits"]
             del config["benchmarks"]
             config["benchmark_name"] = benchmark_name
-            config["power_limit"] = power_limit
+            # convert watts to milliwatts
+            config["power_limit"] = power_limit * 1000
             config["device_index"] = int(config.pop("devices"))
             config["clocks"] = (None, None)
             run_experiment(**config)

@@ -298,8 +298,8 @@ def patch(data_root, enable_energy, visible_devices):
     sampling_types = [
         SamplingType.GPU_UTILIZATION_SAMPLES,
         SamplingType.MEMORY_UTILIZATION_SAMPLES,
-        SamplingType.MEMORY_CLK_SAMPLES,
-        SamplingType.PROCESSOR_CLK_SAMPLES,
+        # SamplingType.MEMORY_CLK_SAMPLES,
+        # SamplingType.PROCESSOR_CLK_SAMPLES,
         SamplingType.TOTAL_POWER_SAMPLES
     ]
 

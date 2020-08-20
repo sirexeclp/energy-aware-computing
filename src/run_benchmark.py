@@ -205,18 +205,21 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
         # get device
         device = lib.device.from_index(device_index)
 
-        SystemInfo.gather(device).save(data_path / "system_info.json")
 
         # set constraints
-        limit = PowerLimit(device, power_limit)
-        clocks = ApplicationClockLimit(device, *clocks)
-        #with limit, clocks:
-        args = ["python3", "-m", "g_py_joules", "-d", str(data_path.absolute()),# "-e",
-                "-v", str(device_index), "-w", str(working_directory), module, "--"] + args
-        print(args)
-        p = subprocess.Popen(args)
-        while p.poll() is None:
-            time.sleep(1)
+        # reset power-limit to default value, when we are done and check if it was set successfully
+        limit = PowerLimit(device, power_limit, set_default=True, check=True)
+        clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
+        with limit, clocks:
+
+            SystemInfo.gather(device).save(data_path / "system_info.json")
+
+            args = ["python3", "-m", "g_py_joules", "-d", str(data_path.absolute()),# "-e",
+                    "-v", str(device_index), "-w", str(working_directory), module, "--"] + args
+            print(args)
+            p = subprocess.Popen(args)
+            while p.poll() is None:
+                time.sleep(1)
 
 
 def randomly(seq):

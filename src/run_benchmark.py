@@ -192,6 +192,9 @@ def load_benchmark_definition(path):
     return benchmark
 
 
+def watt2milliwatt(value):
+    return value * 1000
+
 
 def run_experiment(device_index: int, data_path: str, working_directory: str, module: str,
                    args: List[str], power_limit: int, clocks: Tuple[int, int],
@@ -208,7 +211,8 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
 
         # set constraints
         # reset power-limit to default value, when we are done and check if it was set successfully
-        limit = PowerLimit(device, power_limit, set_default=True, check=True)
+        # convert watts to milliwatts
+        limit = PowerLimit(device, watt2milliwatt(power_limit), set_default=True, check=True)
         clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
         with limit, clocks:
 
@@ -250,8 +254,7 @@ if __name__ == "__main__":
             del config["clock_limits"]
             del config["benchmarks"]
             config["benchmark_name"] = benchmark_name
-            # convert watts to milliwatts
-            config["power_limit"] = power_limit * 1000
+            config["power_limit"] = power_limit
             config["device_index"] = int(config.pop("devices"))
             config["clocks"] = (None, None)
             run_experiment(**config)

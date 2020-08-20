@@ -28,7 +28,7 @@ class SystemInfo(NamedTuple):
     max_boost_clock_sm: int
 
     applications_clock_target_mem: int
-    max_boost_clock_mem: int
+    # max_boost_clock_mem: int
 
     @classmethod
     def gather(cls, device: Device):

@@ -66,10 +66,10 @@ if subtract_pixel_mean:
     x_train -= x_train_mean
     x_test -= x_train_mean
 
-print('x_train shape:', x_train.shape)
-print(x_train.shape[0], 'train samples')
-print(x_test.shape[0], 'test samples')
-print('y_train shape:', y_train.shape)
+# print('x_train shape:', x_train.shape)
+# print(x_train.shape[0], 'train samples')
+# print(x_test.shape[0], 'test samples')
+# print('y_train shape:', y_train.shape)
 
 # Convert class vectors to binary class matrices.
 y_train = keras.utils.to_categorical(y_train, num_classes)
@@ -324,15 +324,15 @@ else:
 model.compile(loss='categorical_crossentropy',
               optimizer=Adam(lr=lr_schedule(0)),
               metrics=['accuracy'])
-model.summary()
-print(model_type)
+# model.summary()
+# print(model_type)
 
 # Prepare model model saving directory.
-save_dir = os.path.join(os.getcwd(), 'saved_models')
-model_name = 'cifar10_%s_model.{epoch:03d}.h5' % model_type
-if not os.path.isdir(save_dir):
-    os.makedirs(save_dir)
-filepath = os.path.join(save_dir, model_name)
+# save_dir = os.path.join(os.getcwd(), 'saved_models')
+# model_name = 'cifar10_%s_model.{epoch:03d}.h5' % model_type
+# if not os.path.isdir(save_dir):
+#     os.makedirs(save_dir)
+# filepath = os.path.join(save_dir, model_name)
 
 # Prepare callbacks for model saving and for learning rate adjustment.
 # checkpoint = ModelCheckpoint(filepath=filepath,

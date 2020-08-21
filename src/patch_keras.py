@@ -13,6 +13,7 @@ from pynvml3.errors import NVMLErrorNotFound
 warnings.filterwarnings('ignore')
 
 import tensorflow
+tensorflow.get_logger().setLevel('INFO')
 import tensorflow.keras as keras
 import atexit
 from multiprocessing import Process, Event, Queue

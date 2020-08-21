@@ -1,4 +1,3 @@
-from __future__ import print_function
 import tensorflow.keras as keras
 from tensorflow.keras.layers import Dense, Conv2D, BatchNormalization, Activation
 from tensorflow.keras.layers import AveragePooling2D, Input, Flatten
@@ -16,7 +15,7 @@ import os
 # Training parameters
 batch_size = 128  # orig paper trained all networks with batch_size=128
 epochs = 20
-data_augmentation = True
+data_augmentation = False
 num_classes = 10
 
 # Subtracting pixel mean improves accuracy

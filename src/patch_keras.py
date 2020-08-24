@@ -210,7 +210,7 @@ class SampleCollector(Collector):
         self.last_sample_time = 0
 
     def _on_tick(self, args, kwargs):
-        samples = self.device.get_samples(self.sample_type, self.last_sample_time)
+        samples = self.device.try_get_samples(self.sample_type, self.last_sample_time)
         self.data.extend(samples)
         self.last_sample_time = samples[-1].timestamp
 
@@ -235,7 +235,7 @@ class SampleCollector(Collector):
 
 class SlowCollector(Collector):
 
-    def __init__(self, device_id: int, interval: int, path: str, args=None, kwargs=None):
+    def __init__(self, device_id: int, interval: float, path: str, args=None, kwargs=None):
         super(SlowCollector, self).__init__(device_id, interval, path, args, kwargs)
         self.data_functions = {
             "timestamp": lambda: str(datetime.now())

@@ -2,6 +2,7 @@
 # To add a new markdown cell, type '# %% [markdown]'
 
 # %%
+import os
 import random
 from typing import List, Tuple
 import subprocess
@@ -255,7 +256,7 @@ if __name__ == "__main__":
             del config["benchmarks"]
             config["benchmark_name"] = benchmark_name
             config["power_limit"] = power_limit
-            config["device_index"] = int(config.pop("devices"))
+            config["device_index"] = int(os.environ["NVIDIA_VISIBLE_DEVICES"])# int(config.pop("devices"))
             config["clocks"] = (None, None)
             run_experiment(**config)
 

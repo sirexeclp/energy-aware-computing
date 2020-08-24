@@ -233,8 +233,8 @@ class SampleCollector(Collector):
 
 class SlowCollector(Collector):
 
-    def __init__(self):
-        super(SlowCollector, self).__init__()
+    def __init__(self, device_id: int, interval: int, path: str, args=None, kwargs=None):
+        super(SlowCollector, self).__init__(device_id, interval, path, args, kwargs)
         self.data_functions = {
             "timestamp": lambda: str(datetime.now())
             , "util": lambda: self.device.get_utilization_rates()

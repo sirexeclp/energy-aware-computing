@@ -12,9 +12,11 @@ from pynvml3.errors import NVMLErrorNotFound, NVMLErrorNotSupported
 
 warnings.filterwarnings('ignore')
 
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 import tensorflow
 
-tensorflow.get_logger().setLevel('INFO')
 import tensorflow.keras as keras
 import atexit
 from multiprocessing import Process, Event, Queue
@@ -279,6 +281,7 @@ class SlowCollector(Collector):
         self.data_functions = {key: value for key, value in
                                self.data_functions.items() if self._is_supported(key, value)}
         self.device = None
+        return bool(self.data_functions)
 
 
 class CollectorManager:

@@ -8,11 +8,12 @@ from typing import Union
 from pynvml3 import Device, ClockType, ClockId
 from pynvml3 import TemperatureSensors, PcieUtilCounter, SamplingType
 from pynvml3 import NVMLLib
-from pynvml3.errors import NVMLErrorNotFound
+from pynvml3.errors import NVMLErrorNotFound, NVMLErrorNotSupported
 
 warnings.filterwarnings('ignore')
 
 import tensorflow
+
 tensorflow.get_logger().setLevel('INFO')
 import tensorflow.keras as keras
 import atexit
@@ -184,6 +185,10 @@ class Collector(ProcessTimer):
     def _get_save_path(self):
         pass
 
+    @abc.abstractmethod
+    def test(self, device):
+        pass
+
     def _save(self):
         # print(f"[saving] {self.__class__.__name__}")
         # print(self.get_len())
@@ -215,6 +220,7 @@ class SampleCollector(Collector):
             # first call sometimes works but then the second will fail; idk why.
             self.device = device
             self._on_tick(None, None)
+            time.sleep(self.interval)
             self._on_tick(None, None)
             print(f"{self.sample_type}: OK")
             self.device = None
@@ -227,32 +233,52 @@ class SampleCollector(Collector):
 
 class SlowCollector(Collector):
 
+    def __init__(self):
+        super(SlowCollector, self).__init__()
+        self.data_functions = {
+            "timestamp": lambda: str(datetime.now())
+            , "util": lambda: self.device.get_utilization_rates()
+            , "clock-mem": lambda: self.device.get_clock(ClockType.MEM, ClockId.CURRENT)
+            , "clock-gpu": lambda: self.device.get_clock(ClockType.SM, ClockId.CURRENT)
+            # int representation to save on storage size
+            , "power-state": lambda: self.device.get_power_state().value
+            , "power": lambda: self.device.get_power_usage()
+            , "tmp": lambda: self.device.get_temperature(TemperatureSensors.TEMPERATURE_GPU)
+            , "pci-tx": lambda: self.device.get_pcie_throughput(PcieUtilCounter.TX_BYTES)
+            , "pci-rx": lambda: self.device.get_pcie_throughput(PcieUtilCounter.RX_BYTES)
+        }
+
     def _get_save_path(self):
         return self.path / "gpu-power.csv"
 
     def _on_tick(self, args, kwargs):
         data_event, data_queue = args
-        util = self.device.get_utilization_rates()
-        data = {
-            "timestamp": str(datetime.now())
-            , "util-gpu": util.gpu
-            , "util-mem": util.memory
+        data = {key: function() for key, function in self.data_functions.items()}
+        if "util" in data:
+            data["util-gpu"] = data["util"].gpu
+            data["util-mem"] = data["util"].memory
+            del data["util"]
 
-            , "clock-mem": self.device.get_clock(ClockType.MEM, ClockId.CURRENT)
-            , "clock-gpu": self.device.get_clock(ClockType.SM, ClockId.CURRENT)
-            # int representation to save on storage size
-            , "power-state": self.device.get_power_state().value
-            #
-            , "power": self.device.get_power_usage()
-            , "tmp": self.device.get_temperature(TemperatureSensors.TEMPERATURE_GPU)
-            , "pci-tx": self.device.get_pcie_throughput(PcieUtilCounter.TX_BYTES)
-            , "pci-rx": self.device.get_pcie_throughput(PcieUtilCounter.RX_BYTES)
-        }
         self.data.append(data)
-        # print(self.get_len())
+
         if data_event.is_set():
             data_queue.put(self.data)
             data_event.clear()
+
+    @staticmethod
+    def _is_supported(key, function):
+        try:
+            function()
+            return True
+        except NVMLErrorNotSupported:
+            print(f"W: {key} is not supported on this system!")
+            return False
+
+    def test(self, device):
+        self.device = device
+        self.data_functions = {key: value for key, value in
+                               self.data_functions.items() if self._is_supported(key, value)}
+        self.device = None
 
 
 class CollectorManager:
@@ -263,10 +289,14 @@ class CollectorManager:
         self.device_id = device_id
 
     def add(self, collector: Union[Collector, List[Collector]]):
-        if isinstance(collector, list):
-            self.collectors.extend(collector)
-        else:
-            self.collectors.append(collector)
+        if not isinstance(collector, list):
+            collector = [collector]
+
+        with NVMLLib() as lib:
+            device = lib.device.from_index(self.device_id)
+            for col in collector:
+                if col.test(device):
+                    self.collectors.append(col)
 
     def add_by_sampling_type(self, sampling_type: Union[SamplingType,
                                                         List[SamplingType]]
@@ -274,13 +304,8 @@ class CollectorManager:
         if isinstance(sampling_type, SamplingType):
             sampling_type = [sampling_type]
 
-        with NVMLLib() as lib:
-            device = lib.device.from_index(self.device_id)
-            for st in sampling_type:
-                collector = SampleCollector(st, self.device_id, interval
-                                            , self.data_path)
-                if collector.test(device):
-                    self.add(collector)
+        collectors = [SampleCollector(st, self.device_id, interval, self.data_path) for st in sampling_type]
+        self.add(collectors)
 
     def start(self):
         for col in self.collectors:
@@ -310,7 +335,7 @@ def patch(data_root, enable_energy, visible_devices):
     data_queue = Queue()
 
     sampling_manager.add(SlowCollector(visible_devices,
-                                       interval=0.5,
+                                       interval=0.15,
                                        path=data_root,
                                        args=(data_event, data_queue)))
 

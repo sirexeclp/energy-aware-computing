@@ -1,7 +1,7 @@
-FROM nvcr.io/nvidia/tensorflow:20.07-tf2-py3
+FROM tensorflow:felix
 
 RUN apt-get update && \
-      apt-get -y install sudo
+      apt-get -y install sudo git
 
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt

@@ -221,9 +221,9 @@ class SampleCollector(Collector):
         try:
             # first call sometimes works but then the second will fail; idk why.
             self.device = device
-            self._on_tick(None, None)
+            self.device.get_samples(self.sample_type, self.last_sample_time)
             time.sleep(self.interval)
-            self._on_tick(None, None)
+            self.device.get_samples(self.sample_type, self.last_sample_time)
             print(f"{self.sample_type}: OK")
             self.device = None
             return True

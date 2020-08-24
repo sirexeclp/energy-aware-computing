@@ -1,6 +1,5 @@
 ---
   experiment_name: "power-limit"
-  devices: "0"
   power_limits:
     - 150
     - 200

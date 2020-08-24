@@ -1,20 +1,20 @@
 version: "2.3"
 services:
   energy-benchmark:
-    user: "$UID"
+#    cap_add:
+#      - SYS_ADMIN
+    privileged: true
+    # user: "$UID"
     runtime: "nvidia"
     environment:
       - NVIDIA_VISIBLE_DEVICES=1
     build:
       context: .
-#      dockerfile: dockerfile
+      dockerfile: dockerfile
       args:
         uid: "$UID"
         group_id: "$GID"
-#       buildno: 1
     volumes:
     - .:/code
-    - ./data-test:/tmp/data-test
+    - /tmp/data-test:/tmp/data-test
 
-#volumes:
-#  logvolume01: {}

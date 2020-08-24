@@ -211,8 +211,9 @@ class SampleCollector(Collector):
 
     def _on_tick(self, args, kwargs):
         samples = self.device.try_get_samples(self.sample_type, self.last_sample_time)
-        self.data.extend(samples)
-        self.last_sample_time = samples[-1].timestamp
+        if samples:
+            self.data.extend(samples)
+            self.last_sample_time = samples[-1].timestamp
 
     def _get_save_path(self):
         return self.path / (self.sample_type.get_filename() + ".csv")

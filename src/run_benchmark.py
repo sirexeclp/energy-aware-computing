@@ -215,6 +215,7 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
         # convert watts to milliwatts
         limit = PowerLimit(device, watt2milliwatt(power_limit), set_default=True, check=True)
         clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
+        print(power_limit)
         with limit, clocks:
 
             SystemInfo.gather(device).save(data_path / "system_info.json")

@@ -1,40 +1,62 @@
 import abc
+import atexit
 import multiprocessing
+import time
+import os
 import warnings
-
 # with warnings.catch_warnings():
-from typing import Union
+from typing import Union, Optional
+from multiprocessing import Event, Queue
 
 from pynvml3 import Device, ClockType, ClockId
-from pynvml3 import TemperatureSensors, PcieUtilCounter, SamplingType
 from pynvml3 import NVMLLib
+from pynvml3 import TemperatureSensors, PcieUtilCounter, SamplingType
 from pynvml3.errors import NVMLErrorNotFound, NVMLErrorNotSupported
+from util import *
 
 warnings.filterwarnings('ignore')
 
-import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import tensorflow
-
 import tensorflow.keras as keras
-import atexit
-from multiprocessing import Process, Event, Queue
-import time
-from util import *
+
+
+class TimestampLogger:
+
+    def __init__(self, log_path: Union[str, Path]):
+        self.timestamp_log = []
+        self.log_path = log_path
+        self.columns = ["timestamp", "event", "data"]
+
+    def log_event(self, name: str, index: int = 0) -> None:
+        # print(f"[Info] {name} {index}")
+        tmp = {
+            "timestamp": str(datetime.now()),
+            "event": name,
+            "data": index
+        }
+        self.timestamp_log.append(tmp)
+
+    def __del__(self):
+        df = pd.DataFrame(self.timestamp_log, columns=self.columns)
+        df.to_csv(self.log_path, index=False)
+
+    def get_df(self) -> pd.DataFrame:
+        return pd.DataFrame(self.timestamp_log, columns=self.columns)
 
 
 class EnergyCallback(keras.callbacks.Callback):
-    """Costum Keras Callback to log events, for energy measurements."""
+    """Custom Keras Callback to log events, for energy measurements."""
 
-    def __init__(self, enable_energy_prediction,
-                 num_epochs, log_path, visible_devices, data_event, data_queue):
+    def __init__(self, enable_energy_prediction: bool, num_epochs: int,
+                 timestamp_logger: TimestampLogger, visible_devices: int,
+                 data_event: Event, data_queue: Queue):
         super(EnergyCallback, self).__init__()
-        self.timestamp_log = []
+        self.timestamp_log = timestamp_logger
         self.enable_energy_prediction = enable_energy_prediction
         self.num_epochs = num_epochs
-        self.log_path = log_path
-        self.columns = ["timestamp", "event", "data"]
+
         self.total_batch = 0
         self.visible_devices = visible_devices
         self.last_time = time.time()
@@ -42,7 +64,7 @@ class EnergyCallback(keras.callbacks.Callback):
         self.data_event = data_event
         self.data_queue = data_queue
 
-    def on_train_batch_end(self, batch, logs=None):
+    def on_train_batch_end(self, batch: int, logs=None) -> None:
         pass
         # self.total_batch += 1
         # if (self.total_batch % 100) == 0:
@@ -53,34 +75,28 @@ class EnergyCallback(keras.callbacks.Callback):
         #         print(f"Testing PL: {device.get_power_management_limit()}W, Time: {t}")
         #         self.last_time = time()
 
-    def on_train_batch_begin(self, batch, logs=None):
+    def on_train_batch_begin(self, batch: int, logs=None) -> None:
         pass
 
-    def on_epoch_begin(self, epoch, logs=None):
+    def on_epoch_begin(self, epoch: int, logs=None) -> None:
         self.log_event("epoch_begin", epoch)
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch: int, logs=None) -> None:
         self.log_event("epoch_end", epoch)
 
         if epoch > 0 and self.enable_energy_prediction:
             self.predict_energy(epoch)
 
-    def on_train_begin(self, logs=None):
+    def on_train_begin(self, logs=None) -> None:
         self.log_event("train_begin")
 
-    def on_train_end(self, logs=None):
+    def on_train_end(self, logs=None) -> None:
         self.log_event("train_end")
 
-    def log_event(self, name, index=""):
-        # print(f"[Info] {name} {index}")
-        tmp = {
-            "timestamp": str(datetime.now())
-            , "event": name
-            , "data": index
-        }
-        self.timestamp_log.append(tmp)
+    def log_event(self, name: str, index: int = 0):
+        self.timestamp_log.log_event(name=name, index=index)
 
-    def get_gpu_data(self):
+    def get_gpu_data(self) -> pd.DataFrame:
         self.data_event.set()
         while self.data_queue.empty():
             time.sleep(0.1)
@@ -88,9 +104,9 @@ class EnergyCallback(keras.callbacks.Callback):
         gpu_data = pd.DataFrame(gpu_data)
         return gpu_data
 
-    def predict_energy(self, epoch):
+    def predict_energy(self, epoch: int) -> None:
         gpu_data = self.get_gpu_data()
-        timestamps = pd.DataFrame(self.timestamp_log, columns=self.columns)
+        timestamps = self.timestamp_log.get_df()
         power_data = PowerData(gpu_data, timestamps)
         pred = predict_energy_live(power_data, [0], self.num_epochs, epoch)
         actual = calculate_total_energy(power_data, [0])
@@ -100,12 +116,8 @@ class EnergyCallback(keras.callbacks.Callback):
         self.summary_writer.flush()
         print(f"\nConsumed Energy: {actual / 1_000:.3f}/{pred / 1_000:.3f}kJ")
 
-    def __del__(self):
-        df = pd.DataFrame(self.timestamp_log, columns=self.columns)
-        df.to_csv(self.log_path, index=False)
 
-
-def get_log_path(new_path):
+def get_log_path(new_path: Union[str, Path]) -> Path:
     data_root = Path(new_path)
     timestamp_log_path = data_root / "timestamps.csv"
     data_root.mkdir(parents=True, exist_ok=True)
@@ -114,7 +126,7 @@ def get_log_path(new_path):
 
 class ProcessTimer(abc.ABC):
 
-    def __init__(self, interval, args=None, kwargs=None):
+    def __init__(self, interval: float, args=None, kwargs=None):
         self.interval = interval
         self.args = () if args is None else args
         self.kwargs = {} if kwargs is None else kwargs
@@ -129,27 +141,27 @@ class ProcessTimer(abc.ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def start(self):
+    def start(self) -> None:
         self.last_time = time.time()
         self._stop.clear()
         self.process.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self._stop.set()
 
     @abc.abstractmethod
-    def _on_start(self):
+    def _on_start(self) -> None:
         pass
 
     @abc.abstractmethod
-    def _on_stop(self):
+    def _on_stop(self) -> None:
         pass
 
     @abc.abstractmethod
-    def _on_tick(self, args, kwargs):
+    def _on_tick(self, args, kwargs) -> None:
         pass
 
-    def _run(self):
+    def _run(self) -> None:
         self._on_start()
         while not self._stop.is_set():
             iter_start = time.time()
@@ -165,33 +177,33 @@ class ProcessTimer(abc.ABC):
 
 
 class Collector(ProcessTimer):
-    def __init__(self, device_id, interval, path, args=None, kwargs=None):
+    def __init__(self, device_id: int, interval: float, path: Union[str, Path], args=None, kwargs=None):
         super(Collector, self).__init__(interval, args, kwargs)
         self.data = []
         self.device_id = device_id
         self.lib = None
-        self.device: Device = None
+        self.device: Optional[Device] = None
         self.path = Path(path)
 
-    def _on_start(self):
+    def _on_start(self) -> None:
         self.lib = NVMLLib()
         self.lib.open()
         self.device = self.lib.device.from_index(self.device_id)
 
-    def _on_stop(self):
+    def _on_stop(self) -> None:
         self.device = None
         self.lib.close()
         self._save()
 
     @abc.abstractmethod
-    def _get_save_path(self):
+    def _get_save_path(self) -> Path:
         pass
 
     @abc.abstractmethod
-    def test(self, device):
+    def test(self, device: Device) -> bool:
         pass
 
-    def _save(self):
+    def _save(self) -> None:
         # print(f"[saving] {self.__class__.__name__}")
         # print(self.get_len())
         path = self._get_save_path()
@@ -204,21 +216,21 @@ class Collector(ProcessTimer):
 
 class SampleCollector(Collector):
 
-    def __init__(self, sample_type, device_id, interval, path):
+    def __init__(self, sample_type: SamplingType, device_id: int, interval: float, path: Union[str, Path]):
         super(SampleCollector, self).__init__(device_id, interval, path)
         self.sample_type = sample_type
         self.last_sample_time = 0
 
-    def _on_tick(self, args, kwargs):
+    def _on_tick(self, args, kwargs) -> None:
         samples = self.device.try_get_samples(self.sample_type, self.last_sample_time)
         if samples:
             self.data.extend(samples)
             self.last_sample_time = samples[-1].timestamp
 
-    def _get_save_path(self):
+    def _get_save_path(self) -> Path:
         return self.path / (self.sample_type.get_filename() + ".csv")
 
-    def test(self, device):
+    def test(self, device: Device) -> bool:
         try:
             # first call sometimes works but then the second will fail; idk why.
             self.device = device
@@ -228,7 +240,7 @@ class SampleCollector(Collector):
             print(f"{self.sample_type}: OK")
             self.device = None
             return True
-        except NVMLErrorNotFound as e:
+        except NVMLErrorNotFound:
             print(f"{self.sample_type} not supported on this device!")
             self.device = None
             return False
@@ -251,10 +263,10 @@ class SlowCollector(Collector):
             , "pci-rx": lambda: self.device.get_pcie_throughput(PcieUtilCounter.RX_BYTES)
         }
 
-    def _get_save_path(self):
+    def _get_save_path(self) -> Path:
         return self.path / "gpu-power.csv"
 
-    def _on_tick(self, args, kwargs):
+    def _on_tick(self, args, kwargs) -> None:
         data_event, data_queue = args
         data = {key: function() for key, function in self.data_functions.items()}
         if "util" in data:
@@ -269,7 +281,7 @@ class SlowCollector(Collector):
             data_event.clear()
 
     @staticmethod
-    def _is_supported(key, function):
+    def _is_supported(key: str, function: callable) -> bool:
         try:
             function()
             return True
@@ -277,7 +289,7 @@ class SlowCollector(Collector):
             print(f"W: {key} is not supported on this system!")
             return False
 
-    def test(self, device):
+    def test(self, device: Device) -> bool:
         self.device = device
         self.data_functions = {key: value for key, value in
                                self.data_functions.items() if self._is_supported(key, value)}
@@ -286,13 +298,13 @@ class SlowCollector(Collector):
 
 
 class CollectorManager:
-    def __init__(self, data_path, device_id, ):
+    def __init__(self, data_path: Union[str, Path], device_id: int):
         self.collectors: List[Collector] = []
         self.data_path = Path(data_path)
         self.data_path.mkdir(parents=True, exist_ok=True)
         self.device_id = device_id
 
-    def add(self, collector: Union[Collector, List[Collector]]):
+    def add(self, collector: Union[Collector, List[Collector]]) -> None:
         if not isinstance(collector, list):
             collector = [collector]
 
@@ -320,8 +332,9 @@ class CollectorManager:
             col.stop()
 
 
-def patch(data_root, enable_energy, visible_devices):
+def patch(data_root: str, enable_energy: bool, visible_devices: int):
     timestamp_log_path = get_log_path(data_root)
+    logger = TimestampLogger(timestamp_log_path)
     # timestamp_log = open(timestamp_log_path , "w", buffering=1)
     # timestamp_log.write(f"timestamp,event,data\n")
 
@@ -349,13 +362,14 @@ def patch(data_root, enable_energy, visible_devices):
 
     @atexit.register
     def on_exit():
+        logger.log_event("experiment_end")
         sampling_manager.stop()
 
     def get_patched_fit(original_function):
         def patched_fit(*args, **kwargs):
             num_epochs = kwargs.get("epochs")
             callback = EnergyCallback(enable_energy, num_epochs
-                                      , timestamp_log_path, visible_devices
+                                      , logger, visible_devices
                                       , data_event, data_queue)
             kwargs.setdefault("callbacks", list()).append(callback)
             if not enable_energy:
@@ -368,4 +382,4 @@ def patch(data_root, enable_energy, visible_devices):
     model.fit = get_patched_fit(model.fit)
     model.fit_generator = get_patched_fit(model.fit_generator)
 
-    # log_event("experiment_begin")
+    logger.log_event("experiment_begin")

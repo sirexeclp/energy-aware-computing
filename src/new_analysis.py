@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 import pandas as pd
 import json
@@ -6,6 +7,9 @@ import holoviews as hv
 import hvplot.pandas
 import numpy as np
 from scipy import integrate
+from scipy.interpolate import interp1d
+
+from src.util import TimestampInfo
 
 
 class BenchmarkRun:
@@ -19,6 +23,9 @@ class BenchmarkRun:
         self.data_sd = self._load_sd_data()
         self.system_info = self._load_system_info()
         self.power_hd = self._load_hd_power()
+        self.start_index = self._get_start_index()
+
+        self.prepare_data()
 
     def __str__(self):
         return f"BenchmarkRun({self.name})"
@@ -26,20 +33,35 @@ class BenchmarkRun:
     def __repr__(self):
         return self.__str__()
 
+    def prepare_data(self):
+        self.data_sd = self.normalize_timestamps(self.data_sd)
+        self.power_hd = self.normalize_timestamps(self.power_hd)
+
+        self.data_sd["power"] = self.data_sd["power"] / 1_000
+        self.power_hd["power"] = self.power_hd["power"] / 1_000
+
+        self.calculate_energy(self.data_sd)
+        self.calculate_energy(self.power_hd)
+
+        # self.power_hd["power"] = self.interpolate(self.power_hd.timestamp, self.power_hd.power, 1/50)
+
+    @staticmethod
+    def calculate_energy(df):
+        df["energy"] = get_energy(df["power"], df["timestamp"])
+
     def _list_files(self) -> List[Path]:
         return list(self.path.glob("*"))
 
-    def _load_timestamps(self) -> Optional[Path]:
+    def _load_timestamps(self) -> Optional[TimestampInfo]:
         path = self.path / "timestamps.csv"
         if path.exists():
-            return pd.read_csv(path)
+            return TimestampInfo(pd.read_csv(path))
         else:
             return None
 
     def _load_sd_data(self) -> pd.DataFrame:
         df = pd.read_csv(self.path / "gpu-power.csv", index_col=0)
         df["timestamp"] = pd.to_datetime(df["timestamp"])
-        df["energy"] = get_energy(df["power"], df["timestamp"])
         return df
 
     def _load_system_info(self) -> dict:
@@ -50,9 +72,33 @@ class BenchmarkRun:
         df = pd.read_csv(self.path / "total_power_samples.csv", index_col=0)
         df = df.rename(columns={"value": "power"})
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="us")
-        df["energy"] = get_energy(df["power"], df["timestamp"])
         return df
 
+    def _get_start_index(self) -> np.datetime64:
+        if self.timestamps is not None and self.timestamps.experiment_begin is not None:
+            return self.timestamps.experiment_begin
+        else:
+            return max(self.data_sd.timestamp.min(), self.power_hd.timestamp.min())
+
+    def normalize_timestamps(self, df):
+        df = df.copy(deep=True)
+        df["timestamp"] = (df["timestamp"] - self.start_index) / np.timedelta64(1, 's')
+        df = df[df.timestamp >= 0]
+        return df
+
+    @staticmethod
+    def interpolate(x, y, step):
+        x = np.array(x)
+        y = np.array(y)
+        x_tick = np.arange(x[0], x[-1], step)
+        f_cubic = interp1d(x, y, kind="cubic")
+        return x_tick, f_cubic(x_tick)
+
+    def remove_setup_data(self) -> "BenchmarkRun":
+        result = copy.deepcopy(self)
+        result.power_hd = result.power_hd[result.power_hd.timestamp >= result.get_start_index()]
+        result.data_sd = result.data_sd[result.data_sd.timestamp >= result.get_start_index()]
+        return result
     # @property
     # def energy(self, resolution="hd"):
     #     if resolution == "hd":
@@ -96,6 +142,9 @@ class Experiment:
     def __str__(self):
         return f"Experiment({self.name})"
 
+    def __repr__(self):
+        return self.__str__()
+
 
 def get_energy(power, time):
     return integrate.cumtrapz(power, time, initial=0)
@@ -114,8 +163,12 @@ if __name__ == '__main__':
     print(e.benchmarks)
     w150 = e.benchmarks["resnet"].runs["150W"]  # ["value"].hvplot()
     print(w150.power_hd.head())
-    print(w150.data_sd.head())
-    print(w150.timestamps)
+    print(w150.data_sd.timestamp.dtype)
+    # print(w150.timestamps)
+    print(type(w150.get_start_index()))
+    print(w150.data_sd[w150.data_sd.timestamp >= w150.get_start_index()])
+    w150 = w150.remove_setup_data()
+
     # energy1 = get_energy(w150, w150["timestamp"])
     # energy2 = get_cumulative_energy(w150["value"], w150["timestamp"])
     # # np.testing.assert_allclose(energy1[0:-1], energy2[1:-1])

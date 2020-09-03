@@ -115,13 +115,20 @@ class EventType(Enum):
 class TimestampInfo:
     def __init__(self, timestamps):
         self.timestamps = timestamps
+        self.timestamps["timestamp"] = pd.to_datetime(self.timestamps["timestamp"])
 
     def _get_event_index(self, event, index):
         if index is None:
             selection = self.timestamps  # [self.timestamps.data.isnull()]
         else:
             selection = self.timestamps[self.timestamps.data == index]
-        return selection[selection.event == event].iloc[0].timestamp
+
+        selected_event = selection[selection.event == event]
+
+        if selected_event.empty:
+            return None
+        else:
+            return selected_event.iloc[0].timestamp
 
     def get_epoch_begin(self, index):
         return self._get_event_index("epoch_begin", index)
@@ -252,8 +259,7 @@ def calculate_total_energy_experiment(power_data, devices):
 
 
 def interpolate(x, y, step):
-    length = int(x[-1])
-    x_tick = np.arange(0, length, step)
+    x_tick = np.arange(x[0], x[-1], step)
     f_cubic = interp1d(x, y, kind="cubic")
     return x_tick, f_cubic(x_tick)
 

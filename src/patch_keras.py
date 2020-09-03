@@ -38,7 +38,7 @@ class TimestampLogger:
         }
         self.timestamp_log.append(tmp)
 
-    def __del__(self):
+    def save(self):
         df = pd.DataFrame(self.timestamp_log, columns=self.columns)
         df.to_csv(self.log_path, index=False)
 
@@ -364,6 +364,7 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
     @atexit.register
     def on_exit():
         logger.log_event("experiment_end")
+        logger.save()
         sampling_manager.stop()
 
     def get_patched_fit(original_function):

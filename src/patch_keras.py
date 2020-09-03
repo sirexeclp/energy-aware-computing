@@ -65,7 +65,7 @@ class EnergyCallback(keras.callbacks.Callback):
         self.data_queue = data_queue
 
     def on_train_batch_end(self, batch: int, logs=None) -> None:
-        pass
+        self.log_event("batch_end", batch)
         # self.total_batch += 1
         # if (self.total_batch % 100) == 0:
         #     with NVMLLib() as lib:
@@ -76,7 +76,7 @@ class EnergyCallback(keras.callbacks.Callback):
         #         self.last_time = time()
 
     def on_train_batch_begin(self, batch: int, logs=None) -> None:
-        pass
+        self.log_event("batch_begin", batch)
 
     def on_epoch_begin(self, epoch: int, logs=None) -> None:
         self.log_event("epoch_begin", epoch)
@@ -89,6 +89,7 @@ class EnergyCallback(keras.callbacks.Callback):
 
     def on_train_begin(self, logs=None) -> None:
         self.log_event("train_begin")
+        print("Timestamp Logger: Train Begin")
 
     def on_train_end(self, logs=None) -> None:
         self.log_event("train_end")

@@ -39,7 +39,10 @@ def load_benchmark_definition(path):
 
 
 def watt2milliwatt(value):
-    return value * 1000
+    if value is None:
+        return None
+    else:
+        return value * 1000
 
 
 def run_experiment(device_index: int, data_path: str, working_directory: str, module: str,

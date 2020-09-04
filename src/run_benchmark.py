@@ -47,7 +47,11 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
                    experiment_name: str = None, benchmark_name: str = None):
     data_path = Path(data_path) / experiment_name
     data_path = data_path / benchmark_name
-    data_path = data_path / f"{power_limit}W"
+    if power_limit is not None:
+        data_path = data_path / f"{power_limit}W"
+    else:
+        data_path = data_path / f"{clocks[0]}MHz,{clocks[1]}MHz"
+
     data_path = data_path / f"{repetition}"
     if data_path.exists():
         max_id = max([int(x.name) for x in data_path.parent.glob("*")])
@@ -63,6 +67,7 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
         # reset power-limit to default value, when we are done and check if it was set successfully
         # convert watts to milliwatts
         limit = PowerLimit(device, watt2milliwatt(power_limit), set_default=True, check=True)
+
         clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
         print(power_limit)
         with limit, clocks:
@@ -86,6 +91,17 @@ def randomly(seq):
     random.shuffle(shuffled)
     return shuffled
 
+def prepare_configs(x,y):
+    config = {**x, **y}
+    del config["power_limits"]
+    del config["clock_limits"]
+    del config["benchmarks"]
+    del config["repeat"]
+    config["repetition"] = repetition
+    config["benchmark_name"] = benchmark_name
+    config["device_index"] = int(os.environ["NVIDIA_VISIBLE_DEVICES"])  # int(config.pop("devices"))
+    return config
+
 
 if __name__ == "__main__":
     benchmarks_dir = "../benchmarks"
@@ -102,17 +118,17 @@ if __name__ == "__main__":
         print(f"Repetition {repetition}/{reps}")
         for benchmark_name, bench in zip(experiment["benchmarks"], benchmarks):
             # iterate randomly over power limits
-            for power_limit in randomly(experiment["power_limits"]):
-                config = {**experiment, **bench}
-                del config["power_limits"]
-                del config["clock_limits"]
-                del config["benchmarks"]
-                del config["repeat"]
-                config["repetition"] = repetition
-                config["benchmark_name"] = benchmark_name
+            for power_limit in randomly(experiment.get("power_limits", [])):
+                config = prepare_configs(experiment, bench)
                 config["power_limit"] = power_limit
-                config["device_index"] = int(os.environ["NVIDIA_VISIBLE_DEVICES"])  # int(config.pop("devices"))
                 config["clocks"] = (None, None)
+                run_experiment(**config)
+
+            # itrate randomly over clock_limits
+            for clock_limits in randomly(experiment.get("clock_limits", [])):
+                config = prepare_configs(experiment, bench)
+                config["power_limit"] = None
+                config["clocks"] = tuple(clock_limits)
                 run_experiment(**config)
 
     # from git import Repo

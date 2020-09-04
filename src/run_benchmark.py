@@ -91,10 +91,11 @@ def randomly(seq):
     random.shuffle(shuffled)
     return shuffled
 
+
 def prepare_configs(x,y):
     config = {**x, **y}
-    del config["power_limits"]
-    del config["clock_limits"]
+    config.pop("power_limits", None)
+    config.pop("clock_limits", None)
     del config["benchmarks"]
     del config["repeat"]
     config["repetition"] = repetition

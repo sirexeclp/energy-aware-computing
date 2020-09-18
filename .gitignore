@@ -1,6 +1,8 @@
 report.zip
 report
 data
+src/bert
+src/bert_data.pkl
 venv
 .idea
 .vscode

@@ -1,4 +1,4 @@
-FROM tensorflow:felix
+FROM tensorflow/tensorflow:2.3.0-gpu
 
 RUN apt-get update && \
       apt-get -y install sudo git

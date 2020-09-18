@@ -369,7 +369,7 @@ plot_all(mnist_data_big, "mnist-big")
 # %%
 def plot_power_raw(df, device_idx, net):
     fig, ax = plt.subplots(len(power_caps), 1, sharex=True)
-    for index,(_, pl) in enumerate(df[df.run=="1"].iterrows()):
+    for index,(_, pl) in enumerate(df[df._run == "1"].iterrows()):
         current_ax = ax[index]
         power_data = pl["power_data"]
         device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]

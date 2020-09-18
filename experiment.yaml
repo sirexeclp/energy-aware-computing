@@ -6,11 +6,16 @@
     - 200
     - 250
     - 300
+  #  - 235
   clock_limits:
-    - [1, 2]
+    - [877, 1530]
+    - [877, 1005]
+    - [877, 502]
+    - [877, 135]
   data_path: /tmp/data-test
   benchmarks:
-    - mnist
-    - resnet
+    #- mnist
+    #- resnet
+    - bert
 
 

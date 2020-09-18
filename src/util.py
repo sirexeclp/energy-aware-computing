@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 from enum import Enum
 from scipy.interpolate import interp1d
-from typing import List
+from typing import List, NamedTuple
 
 # import pint
 # unit = pint.UnitRegistry()
@@ -18,11 +18,13 @@ mpl.rcParams['figure.dpi'] = 300
 MEGA = 1_000_000
 KILO = 1_000
 
+
 def diff3(x):
-    d =(x[2:]-x[:-2]) / 2
+    d = (x[2:] - x[:-2]) / 2
     result = np.zeros_like(x, dtype=d.dtype)
     result[1:-1] = d
     return result
+
 
 def load_data(path):
     path = Path(path)
@@ -43,6 +45,18 @@ def units_to_si_base(power_data):
     power_data.power = power_data.power / KILO
 
 
+class Epoch(NamedTuple):
+    index: int
+    begin: datetime
+    end: datetime
+
+
+class Batch(NamedTuple):
+    index: int
+    begin: datetime
+    end: datetime
+
+
 # %%
 class BatchIterator:
     def __init__(self, t_info):
@@ -54,16 +68,17 @@ class BatchIterator:
         return self
 
     def __next__(self):
-        if self.index < self.t_info.batch_count():
+        if self.index < self.t_info.batch_count:
             begin = self.t_info.get_batch_begin(self.index)
-            # end = self.t_info.get_batch_end(self.index)
+            end = self.t_info.get_batch_end(self.index)
+            batch = Batch(self.index, begin, end)
             self.index += 1
-            return begin  # , end
+            return batch
         else:
             raise StopIteration
 
 
-Epoch = namedtuple("Epoch", ["index", "begin", "end"])
+# Epoch = namedtuple("Epoch", ["index", "begin", "end"])
 
 
 class EpochIterator:
@@ -85,9 +100,11 @@ class EpochIterator:
         if self.index < self.end:
             epoch_begin = self.t_info.get_epoch_begin(self.index)
             epoch_end = self.t_info.get_epoch_end(self.index)
-            self.index += self.step
 
-            return Epoch(self.index - self.step, epoch_begin, epoch_end)
+            epoch = Epoch(self.index, epoch_begin, epoch_end)
+
+            self.index += self.step
+            return epoch
         else:
             raise StopIteration
 
@@ -139,8 +156,8 @@ class TimestampInfo:
     def get_batch_begin(self, index):
         return self._get_event_index("batch_begin", index)
 
-    # def get_batch_end(self, index):
-    #    return self._get_event_index("batch_end", index)
+    def get_batch_end(self, index):
+        return self._get_event_index("batch_end", index)
 
     @property
     def batch_count(self):
@@ -187,12 +204,14 @@ class TimestampInfo:
     def epochs(self):
         return self.iter_epochs()
 
+    @property
     def batches(self):
         return BatchIterator(self)
 
 
 class PowerData:
     """"""
+
     def __init__(self, power_gpu, timestamps):
         self.power_gpu = power_gpu
         self.timestamps = timestamps

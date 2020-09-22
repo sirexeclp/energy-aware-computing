@@ -8,12 +8,36 @@ import numpy as np
 import pandas as pd
 from scipy import integrate
 from scipy.interpolate import interp1d
+import holoviews as hv
 
 from src.util import TimestampInfo
+
+label_replacements = {
+    "power": "Power [W]",
+    "clock-gpu": "GPU Clock [MHz]",
+    "clock": "GPU Clock [MHz]",
+    "edp": "Energy Delay Product (EDP) [kJS]",
+    "energy": "Energy [kJ]",
+    "run": "Limit",
+    "timestamp": "Time [s]"
+}
 
 
 def overlay_plots(plots: List):
     return reduce(lambda x, y: x * y, plots)
+
+
+def replace_dimension_labels(plot):
+    for dim in plot.dimensions():
+        # if dim.label == "run":
+        #     dim_values = plot.dimension_values(dim.label)
+
+        dim.label = label_replacements.get(dim.label, dim.label)
+
+
+def apply_plot_default_settings(plot: "hv.core.overlay.Overlay"):
+    replace_dimension_labels(plot)
+    return plot.opts(width=800, height=450)
 
 
 def atoi(text):
@@ -50,15 +74,68 @@ def interpolate_df(df: pd.DataFrame, freq: float, start=0):
     new_df = pd.DataFrame(new_df)
     return new_df
 
+
 def normalize_timestamp(x, start_time):
     return (x - start_time) / np.timedelta64(1, 's')
 
 
+class LinearFit:
+    def __init__(self, x, y, degree=2):
+        self.x = x
+        self.y = y
+        self.degree = degree
+        self.coefficients = np.polyfit(x, y, degree)
+        self.poly = np.poly1d(self.coefficients)
+
+    def __call__(self, arg):
+        self.predict(arg)
+
+    def predict(self, x_hat):
+        return self.poly(x_hat)
+
+    def r2(self, test_data=None):
+        if test_data is None:
+            x = self.x
+            y = self.y
+        else:
+            x, y = test_data
+
+        y_hat = self.predict(x)
+        residuals = y_hat - y
+
+        sst = np.sum((y - np.mean(y)) ** 2)
+        ssr = np.sum(residuals ** 2)
+        return 1 - (ssr / sst)
+
+    def mse(self, test_data=None):
+        if test_data is None:
+            x = self.x
+            y = self.y
+        else:
+            x, y = test_data
+
+        y_hat = self.predict(x)
+        residuals = y_hat - y
+        return np.mean(residuals ** 2)
+
+    def plot(self, res=100):
+        x_hat = np.linspace(min(self.x), max(self.x), res)
+        y_hat = self.predict(x_hat)
+        return hv.Curve(data=(x_hat, y_hat))
+
+    def __str__(self):
+        return f"LinearFit(degree: {self.degree}, R2: {self.r2():.3f}, MSE: {self.mse():.3f})"
+
+    def __repr__(self):
+        return self.__str__()
+
+
 class Measurement:
 
-    def __init__(self, path: Union[Path, str], name: str, df=None):
+    def __init__(self, path: Union[Path, str], name: str, run: "BenchmarkRun", df=None):
         self.path = Path(path)
         self.name = name
+        self.run = run
         if df is None:
             self.data = self.load()
         else:
@@ -82,35 +159,45 @@ class Measurement:
         self.data = interpolate_df(self.data.set_index("timestamp"), freq, start)
 
     def calculate_energy(self):
-        self["energy"] = get_energy(self["power"], self["timestamp"])
+        self["energy"] = get_energy(self["power"], self["timestamp"]) / 1_000
 
     def calculate_edp(self):
         self["edp"] = self["energy"] * self["timestamp"]
 
     def plot(self, metric: str, label: str):
-        return self.data.set_index("timestamp")[metric].hvplot(label=label)
+        return apply_plot_default_settings(self.data.hvplot(x="timestamp", y=metric, label=label))
 
     def __add__(self, other):
         result = self.data + other.data
-        return Measurement(self.path.parent, self.name, result)
+        return Measurement(self.path.parent, self.name, self.run, result)
 
     def __sub__(self, other):
         result = self.data - other.data
-        return Measurement(self.path.parent, self.name, result)
+        return Measurement(self.path.parent, self.name, self.run, result)
 
     def __truediv__(self, other):
         result = self.data / other.data
-        return Measurement(self.path.parent, self.name, result)
+        return Measurement(self.path.parent, self.name, self.run, result)
 
     def __mul__(self, other):
         result = self.data * other.data
-        return Measurement(self.path.parent, self.name, result)
+        return Measurement(self.path.parent, self.name, self.run, result)
+
+    def r_join(self, other: "Measurement") -> "Measurement":
+        joined = self.data.join(other.data, lsuffix="_sd")
+        joined = joined.drop(joined.filter(regex='_sd$').columns.tolist(), axis=1)
+        joined = joined.dropna()
+        joined = Measurement(self.path.parent, "joined", self.run, joined)
+        return joined
 
 
 class BenchmarkRun:
     def __init__(self, path: Union[Path, str], benchmark: "Benchmark"):
         self.path = Path(path)
         self.name = self.path.name
+
+        self.name = self.name.split(",")[-1]
+
         self.benchmark = benchmark
         self.experiment = self.benchmark.experiment
         self.repetitions = self._load_repetitions()
@@ -132,10 +219,10 @@ class BenchmarkRun:
         dfs = [x.measurements[data_source].data for x in self.repetitions]  # [:-1]
         new_df = {}
         for col in dfs[0]:
-            new_df[col] = pd.concat([x[col] for x in dfs], axis=1).aggregate(func, axis=1)#.mean(axis=1)
+            new_df[col] = pd.concat([x[col] for x in dfs], axis=1).aggregate(func, axis=1)  # .mean(axis=1)
 
         new_df = pd.DataFrame(new_df)
-        return Measurement(self.path, f"{data_source}-{func}", df=new_df)
+        return Measurement(self.path, f"{data_source}-{func}", self, df=new_df)
 
     def get_total_values(self, aggregate=None, data_source: str = "hd"):
         values = [r.get_total_values(data_source) for r in self.repetitions]
@@ -168,6 +255,7 @@ class BenchmarkRepetition:
         self.start_index = self._get_start_index()
 
         self.prepare_data()
+        self.add_joined_measurements()
 
     def __str__(self):
         return f"BenchmarkRepetition({self.name})"
@@ -201,15 +289,21 @@ class BenchmarkRepetition:
         return list(self.path.glob("*"))
 
     def load_measurements(self) -> Dict[str, "Measurement"]:
-        sd = Measurement(self.path / "gpu-power.csv", "sd")
+        sd = Measurement(self.path / "gpu-power.csv", "sd", self.run)
         sd.data["timestamp"] = pd.to_datetime(sd.data["timestamp"])
 
-        hd = Measurement(self.path / "total_power_samples.csv", "hd")
+        hd = Measurement(self.path / "total_power_samples.csv", "hd", self.run)
         hd.data = hd.data.rename(columns={"value": "power"})
         hd.data["timestamp"] = pd.to_datetime(hd.data["timestamp"], unit="us")
 
         measurements = [sd, hd]
         return name_dict_from_list(measurements)
+
+    def add_joined_measurements(self):
+        sd = self.measurements["sd"]
+        hd = self.measurements["hd"]
+        joined = sd.r_join(hd)
+        self.measurements["joined"] = joined
 
     def _load_timestamps(self) -> Optional[TimestampInfo]:
         path = self.path / "timestamps.csv"
@@ -240,11 +334,14 @@ class BenchmarkRepetition:
             start_times = [x.data.timestamp.min() for x in self.measurements.values()]
             return max(start_times)
 
-    def plot(self, metric, data_source="hd"):
+    def plot(self, metric, data_source="joined"):
         return self.measurements[data_source].plot(metric=metric, label=self.run.name)
 
-    def get_total_values(self, data_source: str = "hd") -> pd.Series:
+    def get_total_values(self, data_source: str = "joined") -> pd.Series:
         return self.measurements[data_source].data.iloc[-1].rename(self.name)
+
+    def aggregate(self, data_source: str = "joined", func: str = "mean"):
+        return self.measurements[data_source].data.aggregate(func)
 
 
 class Benchmark:
@@ -265,11 +362,11 @@ class Benchmark:
         paths.sort(key=natural_keys)
         return dict(map(lambda x: (x.name, x), [BenchmarkRun(x, self) for x in paths]))
 
-    def plot(self, metric, data_slice, data_source="hd"):
+    def plot(self, metric, data_slice="mean", data_source="joined"):
         plots = []
         if isinstance(data_slice, str):
             for key, run in self.runs.items():
-                aggregate: Measurement = run.aggregate(data_source, "mean")
+                aggregate: Measurement = run.aggregate(data_source, data_slice)
                 plot = aggregate.plot(metric=metric, label=key)
                 plots.append(plot)
         else:
@@ -279,7 +376,7 @@ class Benchmark:
                 plots.append(plot)
             pass
 
-        return overlay_plots(plots)
+        return overlay_plots(plots).opts(legend_position='bottom_right')
 
     def plot_raw_power(self, data_slice, data_source="hd"):
         return self.plot(metric="power",
@@ -289,10 +386,11 @@ class Benchmark:
         return self.plot(metric="energy",
                          data_slice=data_slice, data_source=data_source)
 
-    def get_total_values(self, aggregate=None):
+    def get_total_values(self, aggregate=None, data_source="joined"):
         dfs = []
         for key, run in self.runs.items():
-            dfs.append(run.get_total_values(aggregate))
+            dfs.append(run.get_total_values(aggregate=aggregate,
+                                            data_source=data_source))
 
         if aggregate is None:
             return pd.concat(dfs)
@@ -303,9 +401,40 @@ class Benchmark:
     def boxplot(self, metric):
         df = self.get_total_values()
         boxplot = df.hvplot.box(y=metric, by='run'
-                                , height=450, width=800
                                 , legend=True)
-        return boxplot
+        return apply_plot_default_settings(boxplot)
+
+    def aggregate(self, data_source: str = "joined", func: str = "mean", func2: str = "mean"):
+        data = []
+        for name, run in self.runs.items():
+            tmp = run.aggregate(data_source, func2).data.aggregate(func)
+            tmp = dict(tmp)
+            tmp["run"] = name
+            data.append(tmp)
+
+        data = pd.DataFrame(data)
+        data = data.set_index("run")
+
+        # use totals instead of aggregate for integrated values
+        totals = self.get_total_values(aggregate=func, data_source=data_source)
+        data["energy"] = totals["energy"]
+        data["edp"] = totals["edp"]
+        data["timestamp"] = totals["timestamp"]
+        return data
+
+    def plot_totals(self, x, y, aggregate="mean", data_source="joined"):
+        totals = self.get_total_values(aggregate, data_source)
+        return apply_plot_default_settings(totals.hvplot(x=x, y=y, hover_cols=["run"]))
+
+
+    # def aggregate(self, data_source: str, func: str):
+    #     dfs = [x.aggregate(data_source=data_source, func=func) for x in self.runs.values()]
+    #     new_df = {}
+    #     for col in dfs[0]:
+    #         new_df[col] = pd.concat([x[col] for x in dfs], axis=1).aggregate(func, axis=1)  # .mean(axis=1)
+    #
+    #     new_df = pd.DataFrame(new_df)
+    #     return Measurement(self.path, f"{data_source}-{func}", self, df=new_df)
 
 
 class Experiment:
@@ -335,6 +464,26 @@ class DataLoader:
         experiments = [Experiment(path) for path in experiment_paths]
         return name_dict_from_list(experiments)
 
+    def plot(self, benchmark: str, metric, data_slice="mean", data_source="joined"):
+        benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
+        plots = [b.plot(metric, data_slice, data_source) for b in benchmarks]
+        return apply_plot_default_settings(overlay_plots(plots))
+
+    def boxplot(self, benchmark: str, metric, data_slice="mean", data_source="joined"):
+        benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
+        plots = [b.boxplot(metric) for b in benchmarks]
+        return apply_plot_default_settings(overlay_plots(plots))
+
+    def aggregate(self, benchmark: str, data_source: str = "joined", func: str = "mean", func2: str = "mean"):
+        benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
+        aggregates = [x.aggregate(data_source=data_source, func=func, func2=func2) for x in benchmarks]
+        return pd.concat(aggregates)
+
+    def get_total_values(self, benchmark: str, aggregate=None, data_source="joined"):
+        benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
+        total_values = [x.get_total_values(aggregate=aggregate, data_source=data_source) for x in benchmarks]
+        return pd.concat(total_values)
+
     def __str__(self):
         return f"DataLoader({list(self.experiments.keys())})"
 
@@ -348,4 +497,3 @@ def name_dict_from_list(data):
 
 def get_energy(power, time):
     return integrate.cumtrapz(power, time, initial=0)
-

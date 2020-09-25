@@ -124,6 +124,11 @@ def get_log_path(new_path: Union[str, Path]) -> Path:
     data_root.mkdir(parents=True, exist_ok=True)
     return timestamp_log_path
 
+def get_tensorboard_path(data_root: Union[str, Path]) -> Path:
+    data_root = Path(data_root)
+    tensorboard_path = data_root / "tensorboard"
+    return tensorboard_path
+
 
 class ProcessTimer(abc.ABC):
 
@@ -370,10 +375,17 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
     def get_patched_fit(original_function):
         def patched_fit(*args, **kwargs):
             num_epochs = kwargs.get("epochs")
-            callback = EnergyCallback(enable_energy, num_epochs
-                                      , logger, visible_devices
-                                      , data_event, data_queue)
-            kwargs.setdefault("callbacks", list()).append(callback)
+            energy_callback = EnergyCallback(enable_energy, num_epochs
+                                             , logger, visible_devices
+                                             , data_event, data_queue)
+
+            # profile the first 10 batches with tensorboard
+            tensorboard_callback = keras.callbacks.TensorBoard(log_dir=get_tensorboard_path(data_root),
+                                                               profile_batch=(0, 10))
+
+            callbacks = [energy_callback, tensorboard_callback]
+
+            kwargs.setdefault("callbacks", list()).extend(callbacks)
             if not enable_energy:
                 kwargs["verbose"] = 2
             return original_function(*args, **kwargs)

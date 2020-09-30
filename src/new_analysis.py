@@ -2,45 +2,151 @@ import json
 import re
 from functools import reduce
 from pathlib import Path
-from typing import Union, List, Dict, Optional
+from typing import Union, List, Dict, Optional, Sequence, Tuple
 
+import holoviews as hv
 import numpy as np
 import pandas as pd
+from bokeh.core.property.container import Seq
+from holoviews import Dimension
 from scipy import integrate
 from scipy.interpolate import interp1d
-import holoviews as hv
 
 from src.util import TimestampInfo
 
-label_replacements = {
-    "power": "Power [W]",
-    "clock-gpu": "GPU Clock [MHz]",
-    "clock": "GPU Clock [MHz]",
-    "edp": "Energy Delay Product (EDP) [kJS]",
-    "energy": "Energy [kJ]",
-    "run": "Limit",
-    "timestamp": "Time [s]"
+
+# class Dimension(NamedTuple):
+#     label: str
+#     unit: Optional[str]
+
+def name_dict_from_list(data: List):
+    """Create a dictionary from a list,
+    where each key is the `name` attribute
+    of the list item and the value is the
+    list item itself.
+
+    Args:
+        data: a list, which entries have a name attribute
+
+    Returns: a dictionary mapping names to list items
+
+    Examples:
+
+        class Item(NamedTuple):
+            name: str
+            x: int
+
+
+       my_list = [Item("A", 0), Item("B", 3)]
+       my_dict = name_dict_from_list(my_list)
+       my_dict == {"A": Item("A", 0), "B": Item("B", 3)}
+
+    """
+
+    return {x.name: x for x in data}
+
+
+dimensions = [
+    Dimension("power", label="Power", unit="W"),
+    Dimension("clock-gpu", label="GPU Clock", unit="MHz"),
+    Dimension("clock", label="GPU Clock", unit="MHz"),
+    Dimension("edp", label="Energy Delay Product (EDP)", unit="kJS"),
+    Dimension("energy", label="Energy", unit="kJ"),
+    Dimension("run", label="Limit"),
+    Dimension("timestamp", label="Time", unit="s"),
+]
+
+label_replacements = name_dict_from_list(dimensions)
+
+# {
+#     "power": Dimension("Power", "W"),
+#     "clock-gpu": Dimension("GPU Clock", "MHz"),
+#     "clock": Dimension("GPU Clock", "MHz"),
+#     "edp": Dimension("Energy Delay Product (EDP)", "kJS"),
+#     "energy": Dimension("Energy", "kJ"),
+#     "run": Dimension("Limit", None),
+#     "timestamp": Dimension("Time", "s")
+# }
+benchmark_description = {
+    "bert": "BERT Finetuning"
 }
 
 
 def overlay_plots(plots: List):
-    return reduce(lambda x, y: x * y, plots)
+    """Overlay (combine using * operator) multiple
+    holoviews plots.
+
+    Args:
+        plots: a list of hv-plots
+
+    Returns: a singe hv-plot which contains all input plots
+
+    """
+    #return reduce(lambda x, y: x * y, plots)
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    fig.axes.extend(plots)
+    return fig
+
+def make_title(plot, benchmark: Union["Benchmark", str]) -> None:
+    """Generate a title for a hv-plot, based on dimension labels and benchmark name.
+    Args:
+        plot: The plot to generate and set the title on.
+        benchmark: a ``Benchmark`` object or name of the benchmark
+
+    Examples:
+        y vs. x (benchmark_name)
+
+    """
+    # if isinstance(benchmark, Benchmark):
+    #     benchmark = benchmark.name
+    # x, y, *_ = plot.dimensions()
+    # title = f"{y.label} vs. {x.label} ({benchmark_description.get(benchmark, benchmark)})"
+    # plot.opts(title=title)
+    return None
 
 
-def replace_dimension_labels(plot):
+def replace_dimension_labels(plot) -> None:
+    """Replace dimension labels in the given plot to be more meaningful.
+    Replacements are defined in the global `label_replacements` dict.
+
+    Args:
+        plot: a holoviews plot to replace dimension labels on
+
+    """
     for dim in plot.dimensions():
         # if dim.label == "run":
         #     dim_values = plot.dimension_values(dim.label)
-
-        dim.label = label_replacements.get(dim.label, dim.label)
-
-
-def apply_plot_default_settings(plot: "hv.core.overlay.Overlay"):
-    replace_dimension_labels(plot)
-    return plot.opts(width=800, height=450)
+        replacement = label_replacements.get(dim.name, None)
+        if replacement is not None:
+            dim.label = replacement.label
+            dim.unit = replacement.unit
 
 
-def atoi(text):
+def apply_plot_default_settings(plot):
+    """Applys some default settings (width, height) to the given hv plot.
+    Also replaces dimension labels.
+
+    Args:
+        plot: a holoviews plot
+
+    Returns: the plot
+
+    """
+    # replace_dimension_labels(plot)
+    # make_title(plot)
+    return plot  # .opts(width=800, height=450)
+
+
+def atoi(text: str) -> Union[int, str]:
+    """Converts the given text to an int if possible.
+
+    Args:
+        text: a string, which should be converted to an int
+
+    Returns: the int representation if possible, the given string otherwise
+
+    """
     return int(text) if text.isdigit() else text
 
 
@@ -54,7 +160,20 @@ def natural_keys(text):
     return [atoi(c) for c in re.split(r'(\d+)', text)]
 
 
-def interpolate(x, y, freq, start=0):
+def interpolate(x: Union[np.ndarray, List, pd.Series], y: Union[np.ndarray, List, pd.Series], freq: float,
+                start: float = 0):
+    """Interpolate the given signal y, which is sampled at points x using cubic interpolation
+    and sample a new signal at regular intervals defined by 1/freq, starting at the value start.
+
+    Args:
+        x: the timestamps of the given samples
+        y: the signal samples to be interpolated (amplitude)
+        freq: the frequency of the resulting sample of the interpolation
+        start: the timestamp or x value to start interpolating from until the end of the original signal is reached
+
+    Returns: an interpolated signal with equally spaced samples
+
+    """
     x = np.array(x)
     y = np.array(y)
     x_tick = np.arange(start, x[-1], 1 / freq)
@@ -63,6 +182,18 @@ def interpolate(x, y, freq, start=0):
 
 
 def interpolate_df(df: pd.DataFrame, freq: float, start=0):
+    """Interpolate signals in a dataframe.
+    All rows in the dataframe are interpolated.
+    The index is treated as sample spacing/timestamp (x).
+
+    Args:
+        df: a dataframe to interpolate
+        freq: the frequency of the resulting sample of the interpolation
+        start: the timestamp or x value to start interpolating from until the end of the original signal is reached
+
+    Returns: a new dataframe with interpolated rows
+
+    """
     x = df.index
     new_df = {}
     for col in df:
@@ -75,25 +206,76 @@ def interpolate_df(df: pd.DataFrame, freq: float, start=0):
     return new_df
 
 
-def normalize_timestamp(x, start_time):
+def normalize_timestamp(x, start_time: pd.Timestamp):
+    """Normalizes a timestamp with a fixed start time.
+    Turns a collection of absolute timestamps (datetime) into
+    relative time (in seconds) since `start_time`.
+
+    Args:
+        x: a collection of timestamps
+        start_time: a timestamp
+
+    Returns: a collection of relative timestamps in seconds since `start_time`
+
+    """
     return (x - start_time) / np.timedelta64(1, 's')
 
 
+def identity_function(x):
+    """A simple identity function.
+    """
+    return x
+
+
 class LinearFit:
-    def __init__(self, x, y, degree=2):
+    """A wrapper around np.polyfit and np.poly1d
+    to provide convenient linear regression.
+    """
+
+    def __init__(self, x, y, degree=2, kernel=None):
+        """Fit a new regression.
+
+        Args:
+            x: array of x values
+            y: array of y values
+            degree: degree of the polynomial to fit
+            kernel: a kernel function which is applied element wise before calculating the regression
+        """
         self.x = x
         self.y = y
         self.degree = degree
-        self.coefficients = np.polyfit(x, y, degree)
+        if kernel is None:
+            self.kernel = identity_function
+        else:
+            self.kernel = kernel
+
+        self.coefficients = np.polyfit(self.kernel(x), y, degree)
         self.poly = np.poly1d(self.coefficients)
 
-    def __call__(self, arg):
+    def __call__(self, arg: Sequence) -> np.ndarray:
         self.predict(arg)
 
-    def predict(self, x_hat):
-        return self.poly(x_hat)
+    def predict(self, x_hat: Sequence) -> np.ndarray:
+        """Predict values for x_hat.
 
-    def r2(self, test_data=None):
+        Args:
+            x_hat: a collection of values to predict
+
+        Returns:
+
+        """
+        return self.poly(self.kernel(x_hat))
+
+    def r2(self, test_data: Sequence = None) -> float:
+        """Calculate the coefficient of determination on the training data or test_data, if provided.
+
+        Args:
+            test_data: optional test_data to calculate r2 on
+
+        Returns:
+            The coefficient of determination
+
+        """
         if test_data is None:
             x = self.x
             y = self.y
@@ -107,7 +289,15 @@ class LinearFit:
         ssr = np.sum(residuals ** 2)
         return 1 - (ssr / sst)
 
-    def mse(self, test_data=None):
+    def mse(self, test_data: Sequence = None) -> float:
+        """Calculate the mean squared error on the training data or test_data, if provided.
+
+        Args:
+            test_data: optional test_data to calculate mse on
+
+        Returns: the mean squared error (mse)
+
+        """
         if test_data is None:
             x = self.x
             y = self.y
@@ -118,8 +308,23 @@ class LinearFit:
         residuals = y_hat - y
         return np.mean(residuals ** 2)
 
-    def plot(self, res=100):
-        x_hat = np.linspace(min(self.x), max(self.x), res)
+    def plot(self, res: int = 100, x_range: Optional[Tuple[Union[float, int], Union[float, int]]] = None) -> hv.Curve:
+        """Returns a holoviews curve, to visualize the fitted polynomial.
+
+        Args:
+            res: the resolution or data points to draw between min and max of the dataset.
+            x_range: optional specify the x range to draw
+
+        Returns:
+
+        """
+        if x_range is None:
+            x_min = min(self.x)
+            x_max = max(self.x)
+        else:
+            x_min, x_max = x_range
+
+        x_hat = np.linspace(x_min, x_max, res)
         y_hat = self.predict(x_hat)
         return hv.Curve(data=(x_hat, y_hat))
 
@@ -131,8 +336,15 @@ class LinearFit:
 
 
 class Measurement:
+    """A Measurement is the smallest organizational unit in this data structure.
+    It wraps around a dataframe and provides methods to calculate basic metrics, such as
+    energy, and edp.
+    Also methods for normalization and interpolation are provided to facilitate
+    computations and combinations with multiple different measurements.
 
-    def __init__(self, path: Union[Path, str], name: str, run: "BenchmarkRun", df=None):
+    """
+
+    def __init__(self, path: Union[Path, str], name: str, run: "BenchmarkRun", df: Optional[pd.DataFrame] = None):
         self.path = Path(path)
         self.name = name
         self.run = run
@@ -147,25 +359,56 @@ class Measurement:
     def __setitem__(self, key, value):
         self.data[key] = value
 
-    def load(self):
+    def load(self) -> pd.DataFrame:
+        """Load the pandas dataframe from the path.
+
+        Returns: a pandas dataframe
+
+        """
         df = pd.read_csv(self.path, index_col=0)
         return df
 
-    def normalize_timestamps(self, start_time):
+    def normalize_timestamps(self, start_time: pd.Timestamp) -> None:
+        """Normalize the timestamps of the internal dataframe using the `normalize_timestamp` function.
+
+        Args:
+            start_time: the reference for normalization
+        """
         self["timestamp"] = normalize_timestamp(self["timestamp"], start_time)
         # df = df[df.timestamp >= 0]
 
-    def interpolate(self, freq: float, start=0):
+    def interpolate(self, freq: float, start: float = 0) -> None:
+        """Interpolate all columns in the internal dataframe using the `interpolate_df` function.
+
+        Args:
+            freq:
+            start:
+        """
         self.data = interpolate_df(self.data.set_index("timestamp"), freq, start)
 
-    def calculate_energy(self):
+    def calculate_energy(self) -> None:
+        """Calculate the cumulative energy (returned in kJ) using the columns power (W) and timestamp (s).
+        The result is stored in the column `energy`.
+        """
         self["energy"] = get_energy(self["power"], self["timestamp"]) / 1_000
 
     def calculate_edp(self):
+        """Calculate the energy delay product (kJs) using the columns energy(kj) and timestamp(s).
+        The cumulative energy delay product is stored in the column edp.
+        """
         self["edp"] = self["energy"] * self["timestamp"]
 
     def plot(self, metric: str, label: str):
-        return apply_plot_default_settings(self.data.hvplot(x="timestamp", y=metric, label=label))
+        """Use holoviews to generate a plot of the given metric, with time on the x axis.
+
+        Args:
+            metric: a metric contained in this measurement (eg. energy, power, edp)
+            label: a label for this plot/curve
+
+        Returns: a holoviews plot of the metric with default settings applied
+
+        """
+        return apply_plot_default_settings(self.data.plot(x="timestamp", y=metric, label=label))
 
     def __add__(self, other):
         result = self.data + other.data
@@ -184,6 +427,15 @@ class Measurement:
         return Measurement(self.path.parent, self.name, self.run, result)
 
     def r_join(self, other: "Measurement") -> "Measurement":
+        """Right-Join two Measurements.
+        This can be used to combine hd and sd measurements.
+
+        Args:
+            other: an other measurement object
+
+        Returns: a new measurement object with the joined data-frame
+
+        """
         joined = self.data.join(other.data, lsuffix="_sd")
         joined = joined.drop(joined.filter(regex='_sd$').columns.tolist(), axis=1)
         joined = joined.dropna()
@@ -192,6 +444,10 @@ class Measurement:
 
 
 class BenchmarkRun:
+    """A BenchmarkRun is a concrete configuration of benchmark, ie. a benchmark (such as 'bert')
+    with a power or clock limit (such as 150W) configured.
+
+    """
     def __init__(self, path: Union[Path, str], benchmark: "Benchmark"):
         self.path = Path(path)
         self.name = self.path.name
@@ -216,6 +472,15 @@ class BenchmarkRun:
         return self.repetitions[index]
 
     def aggregate(self, data_source: str, func: str):
+        """Aggregate data from multiple benchmark repetitions.
+
+        Args:
+            data_source: selects the measurement of each repetition to be used
+            func: an aggregation function to be applied across all repetitions
+
+        Returns:
+
+        """
         dfs = [x.measurements[data_source].data for x in self.repetitions]  # [:-1]
         new_df = {}
         for col in dfs[0]:
@@ -224,7 +489,8 @@ class BenchmarkRun:
         new_df = pd.DataFrame(new_df)
         return Measurement(self.path, f"{data_source}-{func}", self, df=new_df)
 
-    def get_total_values(self, aggregate=None, data_source: str = "hd"):
+    def get_total_values(self, aggregate: Union[str, callable] = None, data_source: str = "hd") -> pd.DataFrame:
+
         values = [r.get_total_values(data_source) for r in self.repetitions]
         df = pd.DataFrame(values)
         if aggregate is not None:
@@ -232,7 +498,7 @@ class BenchmarkRun:
         df["run"] = self.name
         return df
 
-    def exclude_outliers(self, percentile=0.95):
+    def exclude_outliers(self, percentile: float = 0.95):
         total_times = [x.get_total_values().timestamp for x in self.repetitions]
         outlier_indices = np.argwhere(np.quantile(total_times, percentile) < total_times)
         for [x] in outlier_indices:
@@ -376,7 +642,9 @@ class Benchmark:
                 plots.append(plot)
             pass
 
-        return overlay_plots(plots).opts(legend_position='bottom_right')
+        plot = overlay_plots(plots)#.opts(legend_position='bottom_right')
+        make_title(plot, self)
+        return plots
 
     def plot_raw_power(self, data_slice, data_source="hd"):
         return self.plot(metric="power",
@@ -400,7 +668,7 @@ class Benchmark:
 
     def boxplot(self, metric):
         df = self.get_total_values()
-        boxplot = df.hvplot.box(y=metric, by='run'
+        boxplot = df.plot.box(y=metric, by='run'
                                 , legend=True)
         return apply_plot_default_settings(boxplot)
 
@@ -423,9 +691,8 @@ class Benchmark:
         return data
 
     def plot_totals(self, x, y, aggregate="mean", data_source="joined"):
-        totals = self.get_total_values(aggregate, data_source)
-        return apply_plot_default_settings(totals.hvplot(x=x, y=y, hover_cols=["run"]))
-
+        totals = self.get_total_values(aggregate, data_source).sort_values(x)
+        return apply_plot_default_settings(totals.plot(x=x, y=y, hover_cols=["run"]))
 
     # def aggregate(self, data_source: str, func: str):
     #     dfs = [x.aggregate(data_source=data_source, func=func) for x in self.runs.values()]
@@ -484,15 +751,18 @@ class DataLoader:
         total_values = [x.get_total_values(aggregate=aggregate, data_source=data_source) for x in benchmarks]
         return pd.concat(total_values)
 
+    def plot_totals(self, benchmark: str, x: str, y: str, aggregate="mean", data_source="joined"):
+        totals = self.get_total_values(benchmark, aggregate, data_source).sort_values(x)
+        scatter = totals.plot.scatter(x=x, y=y, hover_cols=["run"])
+        scatter = apply_plot_default_settings(scatter)
+        make_title(scatter, benchmark)
+        return scatter  # * hv.Curve(scatter))
+
     def __str__(self):
         return f"DataLoader({list(self.experiments.keys())})"
 
     def __repr__(self):
         return self.__str__()
-
-
-def name_dict_from_list(data):
-    return {x.name: x for x in data}
 
 
 def get_energy(power, time):

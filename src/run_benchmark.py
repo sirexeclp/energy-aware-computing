@@ -7,7 +7,7 @@ import random
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Union, Any, Hashable, Sequence, Optional
 
 import yaml
 from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
@@ -15,7 +15,13 @@ from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
 from system_info import SystemInfo
 
 
-def load_experiment_definition():
+def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
+    """Load the experiment definition, which is stored in
+    `experiment.yaml`.
+
+    Returns:
+
+    """
     with open("../experiment.yaml", 'r') as stream:
         try:
             config = yaml.safe_load(stream)
@@ -26,7 +32,14 @@ def load_experiment_definition():
     return config
 
 
-def load_benchmark_definition(path):
+def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
+    """Load the benchmark definition yaml-file from the given path.
+    Args:
+        path: a path to a benchmark definition yaml-file
+
+    Returns: the benchmark definition as a dict
+
+    """
     with open(path) as f:
         try:
             benchmark = yaml.safe_load(f)
@@ -38,16 +51,41 @@ def load_benchmark_definition(path):
     return benchmark
 
 
-def watt2milliwatt(value):
+def watt2milliwatt(value: Union[int, float, None]) -> Union[int, float, None]:
+    """Converts Watts to milliWatts.
+
+    Args:
+        value: a power value measured in watt
+
+    Returns: a power value measured in milliwatt
+
+    """
     if value is None:
         return None
     else:
         return value * 1000
 
 
-def run_experiment(device_index: int, data_path: str, working_directory: str, module: str,
-                   args: List[str], power_limit: int, clocks: Tuple[int, int], repetition: int,
-                   experiment_name: str = None, benchmark_name: str = None):
+def run_benchmark(device_index: int, data_path: str, working_directory: str, module: str,
+                  args: List[str], power_limit: Optional[int], clocks: Optional[Tuple[int, int]], repetition: int,
+                  experiment_name: str = None, benchmark_name: str = None) -> None:
+    """Run a benchmark once on a given device, with the given constraints, while collecting
+    power-data.
+
+    Args:
+        device_index: the index of the gpu device to run the benchmark on
+        data_path: the root data path (defined in experiment.yaml)
+        working_directory: the working directory to run the benchmark in
+        module: the python module to run as a benchmark
+        args: a list of commandline arguments passed to the python module
+        power_limit: a powerlimit in Watt or None
+        clocks: a tuple of gpu memory and graphics clock limit or None
+        repetition: the index of this benchmark repetition
+        experiment_name: the name of the experiment
+        benchmark_name: the name of the benchmark
+
+    """
+
     data_path = Path(data_path) / experiment_name
     data_path = data_path / benchmark_name
     if power_limit is not None:
@@ -89,14 +127,33 @@ def run_experiment(device_index: int, data_path: str, working_directory: str, mo
                 raise e
 
 
-def randomly(seq):
+def randomly(seq: Sequence) -> List:
+    """Helper function to iterate randomly over a sequence.
+
+    Args:
+        seq: a sequence to randomize
+
+    Returns: a shuffled list
+
+    """
     shuffled = list(seq)
     random.shuffle(shuffled)
     return shuffled
 
 
-def prepare_configs(x,y):
-    config = {**x, **y}
+def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
+    """Merge experiment and benchmark config and prepare for
+    passing to `run_benchmark` function.
+
+    Args:
+        exp_config: the global experiment configuration
+        bench_config: the configuration for a benchmark
+
+    Returns: a dict with a configuration that can be unpacked
+        and passed to the `run_benchmark` function.
+
+    """
+    config = {**exp_config, **bench_config}
     config.pop("power_limits", None)
     config.pop("clock_limits", None)
     del config["benchmarks"]
@@ -109,31 +166,38 @@ def prepare_configs(x,y):
 
 if __name__ == "__main__":
     benchmarks_dir = "../benchmarks"
-    experiment = load_experiment_definition()
-
+    experiments = load_experiment_definition()
+    experiments = experiments.get("experiments", [experiments])
     benchmarks = []
-    for bench in experiment["benchmarks"]:
-        path = Path(benchmarks_dir) / bench
-        path = path.with_suffix(".yaml")
-        benchmarks.append(load_benchmark_definition(path))
+    # experiment
+    for experiment in experiments:
+        print(f"Experiment: {experiment['experiment_name']}")
+        for bench in experiment["benchmarks"]:
+            path = Path(benchmarks_dir) / bench
+            path = path.with_suffix(".yaml")
+            benchmarks.append(load_benchmark_definition(path))
 
-    reps = experiment.get("repeat", 1)
-    for repetition in range(reps):
-        print(f"Repetition {repetition}/{reps}")
-        for benchmark_name, bench in zip(experiment["benchmarks"], benchmarks):
-            # iterate randomly over power limits
-            for power_limit in randomly(experiment.get("power_limits", [])):
-                config = prepare_configs(experiment, bench)
-                config["power_limit"] = power_limit
-                config["clocks"] = (None, None)
-                run_experiment(**config)
+        reps = experiment.get("repeat", 1)
+        # benchmark repetition
+        for repetition in range(reps):
+            print(f"Repetition {repetition}/{reps}")
+            # benchmark
+            for benchmark_name, bench in zip(experiment["benchmarks"], benchmarks):
+                # iterate randomly over power limits
+                # benchmark configuration
+                for power_limit in randomly(experiment.get("power_limits", [])):
+                    config = prepare_configs(experiment, bench)
+                    config["power_limit"] = power_limit
+                    config["clocks"] = (None, None)
+                    run_experiment(**config)
 
-            # itrate randomly over clock_limits
-            for clock_limits in randomly(experiment.get("clock_limits", [])):
-                config = prepare_configs(experiment, bench)
-                config["power_limit"] = None
-                config["clocks"] = tuple(clock_limits)
-                run_experiment(**config)
+                # itrate randomly over clock_limits
+                # benchmark configuration
+                for clock_limits in randomly(experiment.get("clock_limits", [])):
+                    config = prepare_configs(experiment, bench)
+                    config["power_limit"] = None
+                    config["clocks"] = tuple(clock_limits)
+                    run_experiment(**config)
 
     # from git import Repo
     #

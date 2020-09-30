@@ -189,7 +189,7 @@ if __name__ == "__main__":
                     config = prepare_configs(experiment, bench)
                     config["power_limit"] = power_limit
                     config["clocks"] = (None, None)
-                    run_experiment(**config)
+                    run_benchmark(**config)
 
                 # itrate randomly over clock_limits
                 # benchmark configuration
@@ -197,7 +197,7 @@ if __name__ == "__main__":
                     config = prepare_configs(experiment, bench)
                     config["power_limit"] = None
                     config["clocks"] = tuple(clock_limits)
-                    run_experiment(**config)
+                    run_benchmark(**config)
 
     # from git import Repo
     #

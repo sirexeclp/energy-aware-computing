@@ -3,6 +3,8 @@ FROM tensorflow/tensorflow:2.3.0-gpu
 RUN apt-get update && \
       apt-get -y install sudo git
 
+RUN apt-get -y install freeglut3 libglu1 libgl1
+
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 RUN  rm requirements.txt

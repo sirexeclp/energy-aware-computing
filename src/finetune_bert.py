@@ -61,26 +61,6 @@ save_path = "bert/bert_base_uncased/"
 with open("bert_data_extra_small.pkl", "rb") as f:
     x_train, y_train, x_eval, y_eval = pickle.load(f)
 
-len(x_train)
-len(y_train)
-y_train[0].shape,y_train[1].shape,x_train[0].shape,x_train[1].shape,x_train[2].shape
-
-
-def subset(data, fraction=0.01):
-    return [x[:int(len(x)*fraction)] for x in data]
-
-
-# +
-x_train_small = subset(x_train)
-y_train_small = subset(y_train)
-
-x_eval_small = subset(x_eval)
-y_eval_small = subset(y_eval)
-# -
-
-with open("bert_data_extra_small.pkl", "wb") as f:
-    pickle.dump([x_train_small, y_train_small, x_eval_small, y_eval_small], f)
-
 """
 Create the Question-Answering Model using BERT and Functional API
 """

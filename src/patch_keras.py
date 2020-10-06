@@ -124,6 +124,7 @@ def get_log_path(new_path: Union[str, Path]) -> Path:
     data_root.mkdir(parents=True, exist_ok=True)
     return timestamp_log_path
 
+
 def get_tensorboard_path(data_root: Union[str, Path]) -> Path:
     data_root = Path(data_root)
     tensorboard_path = data_root / "tensorboard"
@@ -183,7 +184,7 @@ class ProcessTimer(abc.ABC):
 
 
 class Collector(ProcessTimer):
-    def __init__(self, device_id: int, interval: float, path: Union[str, Path], args=None, kwargs=None):
+    def __init__(self, device_id: Optional[int], interval: float, path: Union[str, Path], args=None, kwargs=None):
         super(Collector, self).__init__(interval, args, kwargs)
         self.data = []
         self.device_id = device_id
@@ -303,6 +304,34 @@ class SlowCollector(Collector):
         return bool(self.data_functions)
 
 
+class ExternalCollector(Collector):
+
+    def __init__(self, interval, path ):
+        super().__init__(None, interval=interval, path=path)
+        self.serial_devices = [
+            "/dev/ttyACM0",
+            "/dev/ttyACM1"
+        ]
+        self.handles = []
+
+    def test(self, device: Optional[Device]) -> bool:
+        try:
+            for dev in self.serial_devices:
+                self.handles.append(pynpoint.MCP(dev))
+            return True
+        except Exception:
+            return False
+
+    def _on_tick(self, args, kwargs) -> None:
+        values = []
+        for h in self.handles:
+            values.extend(h.get_power())
+        self.data.append(values)
+
+    def _get_save_path(self) -> Path:
+        return self.path / "power-external.csv"
+
+
 class CollectorManager:
     def __init__(self, data_path: Union[str, Path], device_id: int):
         self.collectors: List[Collector] = []
@@ -362,6 +391,10 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
                                        path=data_root,
                                        args=(data_event, data_queue)))
 
+    external_collector = ExternalCollector(interval=0.01, path=data_root)
+    if external_collector.test(None):
+        sampling_manager.add(external_collector)
+
     sampling_manager.add_by_sampling_type(sampling_types, interval=1.5)
 
     sampling_manager.start()
@@ -380,10 +413,12 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
                                              , data_event, data_queue)
 
             # profile the first 10 batches with tensorboard
-            tensorboard_callback = keras.callbacks.TensorBoard(log_dir=get_tensorboard_path(data_root),
-                                                               profile_batch=(0, 10))
+            # tensorboard_callback = keras.callbacks.TensorBoard(log_dir=get_tensorboard_path(data_root),
+            #                                                    profile_batch=(1, 10))
 
-            callbacks = [energy_callback, tensorboard_callback]
+            callbacks = [energy_callback,
+                         # tensorboard_callback
+                         ]
 
             kwargs.setdefault("callbacks", list()).extend(callbacks)
             if not enable_energy:

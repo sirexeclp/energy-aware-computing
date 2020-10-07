@@ -188,7 +188,7 @@ exact_match_callback = ExactMatch(x_eval, y_eval)
 model.fit(
     x_train,
     y_train,
-    epochs=1,  # For demonstration, 3 epochs are recommended
+    epochs=2,  # For demonstration, 3 epochs are recommended
     verbose=1,
     batch_size=32,
    # callbacks=[exact_match_callback],

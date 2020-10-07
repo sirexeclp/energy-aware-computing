@@ -20,6 +20,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import tensorflow
 import tensorflow.keras as keras
+import pynpoint
 
 
 class TimestampLogger:
@@ -322,6 +323,12 @@ class ExternalCollector(Collector):
         except Exception:
             return False
 
+    def _on_start(self):
+        pass
+
+    def _on_stop(self):
+        self._save()
+
     def _on_tick(self, args, kwargs) -> None:
         values = []
         for h in self.handles:
@@ -391,9 +398,10 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
                                        path=data_root,
                                        args=(data_event, data_queue)))
 
-    external_collector = ExternalCollector(interval=0.01, path=data_root)
-    if external_collector.test(None):
-        sampling_manager.add(external_collector)
+    external_collector = ExternalCollector(interval=0.02, path=data_root)
+    #if external_collector.test(None):
+    #    print("external measurement enabled")
+    sampling_manager.add(external_collector)
 
     sampling_manager.add_by_sampling_type(sampling_types, interval=1.5)
 

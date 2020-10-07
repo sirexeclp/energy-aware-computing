@@ -9,6 +9,10 @@ COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 RUN  rm requirements.txt
 
+RUN pip3 list | grep setup
+
+RUN pip3 install git+https://github.com/sirexeclp/pynpoint.git#egg=pynpoint
+
 ARG uid
 ARG group_id
 RUN echo "using uid: $uid"

@@ -330,10 +330,12 @@ class ExternalCollector(Collector):
         self._save()
 
     def _on_tick(self, args, kwargs) -> None:
-        values = []
-        for h in self.handles:
-            values.extend(h.get_power())
-        self.data.append(values)
+        tmp = {"timestamp": str(datetime.now())}
+        for index, h in enumerate(self.handles):
+            c0, c1 = h.get_power()
+            tmp[f"d{index}c0"] = c0
+            tmp[f"d{index}c1"] = c1
+        self.data.append(tmp)
 
     def _get_save_path(self) -> Path:
         return self.path / "power-external.csv"
@@ -399,8 +401,6 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
                                        args=(data_event, data_queue)))
 
     external_collector = ExternalCollector(interval=0.02, path=data_root)
-    #if external_collector.test(None):
-    #    print("external measurement enabled")
     sampling_manager.add(external_collector)
 
     sampling_manager.add_by_sampling_type(sampling_types, interval=1.5)

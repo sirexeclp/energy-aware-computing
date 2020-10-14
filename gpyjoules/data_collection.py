@@ -2,134 +2,15 @@ import abc
 import atexit
 import multiprocessing
 import time
-import os
-import warnings
-# with warnings.catch_warnings():
-from typing import Union, Optional
-from multiprocessing import Event, Queue
+from datetime import datetime
+from multiprocessing.queues import Queue
+from multiprocessing import Event
+from pathlib import Path
+from typing import Optional, Union, List
 
-from pynvml3 import Device, ClockType, ClockId
-from pynvml3 import NVMLLib
-from pynvml3 import TemperatureSensors, PcieUtilCounter, SamplingType
-from pynvml3.errors import NVMLErrorNotFound, NVMLErrorNotSupported
-from util import *
-
-warnings.filterwarnings('ignore')
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
-import tensorflow
-import tensorflow.keras as keras
-import pynpoint
-
-
-class TimestampLogger:
-
-    def __init__(self, log_path: Union[str, Path]):
-        self.timestamp_log = []
-        self.log_path = log_path
-        self.columns = ["timestamp", "event", "data"]
-
-    def log_event(self, name: str, index: int = 0) -> None:
-        # print(f"[Info] {name} {index}")
-        tmp = {
-            "timestamp": str(datetime.now()),
-            "event": name,
-            "data": index
-        }
-        self.timestamp_log.append(tmp)
-
-    def save(self):
-        df = pd.DataFrame(self.timestamp_log, columns=self.columns)
-        df.to_csv(self.log_path, index=False)
-
-    def get_df(self) -> pd.DataFrame:
-        return pd.DataFrame(self.timestamp_log, columns=self.columns)
-
-
-class EnergyCallback(keras.callbacks.Callback):
-    """Custom Keras Callback to log events, for energy measurements."""
-
-    def __init__(self, enable_energy_prediction: bool, num_epochs: int,
-                 timestamp_logger: TimestampLogger, visible_devices: int,
-                 data_event: Event, data_queue: Queue):
-        super(EnergyCallback, self).__init__()
-        self.timestamp_log = timestamp_logger
-        self.enable_energy_prediction = enable_energy_prediction
-        self.num_epochs = num_epochs
-
-        self.total_batch = 0
-        self.visible_devices = visible_devices
-        self.last_time = time.time()
-        self.summary_writer = tensorflow.summary.create_file_writer("/tmp/energy-board/energy")
-        self.data_event = data_event
-        self.data_queue = data_queue
-
-    def on_train_batch_end(self, batch: int, logs=None) -> None:
-        self.log_event("batch_end", batch)
-        # self.total_batch += 1
-        # if (self.total_batch % 100) == 0:
-        #     with NVMLLib() as lib:
-        #         device = Device.from_index(self.visible_devices)
-        #         device.set_power_management_limit(device.get_power_management_limit()-50_000)
-        #         t = time() - self.last_time
-        #         print(f"Testing PL: {device.get_power_management_limit()}W, Time: {t}")
-        #         self.last_time = time()
-
-    def on_train_batch_begin(self, batch: int, logs=None) -> None:
-        self.log_event("batch_begin", batch)
-
-    def on_epoch_begin(self, epoch: int, logs=None) -> None:
-        self.log_event("epoch_begin", epoch)
-
-    def on_epoch_end(self, epoch: int, logs=None) -> None:
-        self.log_event("epoch_end", epoch)
-
-        if epoch > 0 and self.enable_energy_prediction:
-            self.predict_energy(epoch)
-
-    def on_train_begin(self, logs=None) -> None:
-        self.log_event("train_begin")
-        print("Timestamp Logger: Train Begin")
-
-    def on_train_end(self, logs=None) -> None:
-        self.log_event("train_end")
-
-    def log_event(self, name: str, index: int = 0):
-        self.timestamp_log.log_event(name=name, index=index)
-
-    def get_gpu_data(self) -> pd.DataFrame:
-        self.data_event.set()
-        while self.data_queue.empty():
-            time.sleep(0.1)
-        gpu_data = self.data_queue.get()
-        gpu_data = pd.DataFrame(gpu_data)
-        return gpu_data
-
-    def predict_energy(self, epoch: int) -> None:
-        gpu_data = self.get_gpu_data()
-        timestamps = self.timestamp_log.get_df()
-        power_data = PowerData(gpu_data, timestamps)
-        pred = predict_energy_live(power_data, [0], self.num_epochs, epoch)
-        actual = calculate_total_energy(power_data, [0])
-        with self.summary_writer.as_default():
-            tensorflow.summary.scalar("energy", data=actual, step=epoch)
-            tensorflow.summary.scalar("energy-predicted", data=pred, step=epoch)
-        self.summary_writer.flush()
-        print(f"\nConsumed Energy: {actual / 1_000:.3f}/{pred / 1_000:.3f}kJ")
-
-
-def get_log_path(new_path: Union[str, Path]) -> Path:
-    data_root = Path(new_path)
-    timestamp_log_path = data_root / "timestamps.csv"
-    data_root.mkdir(parents=True, exist_ok=True)
-    return timestamp_log_path
-
-
-def get_tensorboard_path(data_root: Union[str, Path]) -> Path:
-    data_root = Path(data_root)
-    tensorboard_path = data_root / "tensorboard"
-    return tensorboard_path
+import pandas
+from pynvml3 import Device, NVMLLib, SamplingType, NVMLErrorNotFound, ClockType, ClockId, TemperatureSensors, \
+    PcieUtilCounter, NVMLErrorNotSupported
 
 
 class ProcessTimer(abc.ABC):
@@ -263,6 +144,10 @@ class SlowCollector(Collector):
             , "util": lambda: self.device.get_utilization_rates()
             , "clock-mem": lambda: self.device.get_clock(ClockType.MEM, ClockId.CURRENT)
             , "clock-gpu": lambda: self.device.get_clock(ClockType.SM, ClockId.CURRENT)
+            , "app-clock-mem": lambda: self.device.get_applications_clock(ClockType.MEM)
+            , "app-clock-gpu": lambda: self.device.get_applications_clock(ClockType.SM)
+            , "enforced-power-limit": lambda: self.device.get_enforced_power_limit()
+            , "total-energy": lambda: self.device.get_total_energy_consumption()
             # int representation to save on storage size
             , "power-state": lambda: self.device.get_power_state().value
             , "power": lambda: self.device.get_power_usage()
@@ -376,11 +261,7 @@ class CollectorManager:
             col.stop()
 
 
-def patch(data_root: str, enable_energy: bool, visible_devices: int):
-    timestamp_log_path = get_log_path(data_root)
-    logger = TimestampLogger(timestamp_log_path)
-    # timestamp_log = open(timestamp_log_path , "w", buffering=1)
-    # timestamp_log.write(f"timestamp,event,data\n")
+def start_collecting(data_root: str, visible_devices: int, data_event: Event, data_queue: Queue):
 
     sampling_types = [
         SamplingType.GPU_UTILIZATION_SAMPLES,
@@ -391,10 +272,6 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
     ]
 
     sampling_manager = CollectorManager(data_root, visible_devices)
-
-    data_event = Event()
-    data_queue = Queue()
-
     sampling_manager.add(SlowCollector(visible_devices,
                                        interval=0.15,
                                        path=data_root,
@@ -405,38 +282,8 @@ def patch(data_root: str, enable_energy: bool, visible_devices: int):
 
     sampling_manager.add_by_sampling_type(sampling_types, interval=1.5)
 
-    sampling_manager.start()
-
     @atexit.register
     def on_exit():
-        logger.log_event("experiment_end")
-        logger.save()
         sampling_manager.stop()
 
-    def get_patched_fit(original_function):
-        def patched_fit(*args, **kwargs):
-            num_epochs = kwargs.get("epochs")
-            energy_callback = EnergyCallback(enable_energy, num_epochs
-                                             , logger, visible_devices
-                                             , data_event, data_queue)
-
-            # profile the first 10 batches with tensorboard
-            # tensorboard_callback = keras.callbacks.TensorBoard(log_dir=get_tensorboard_path(data_root),
-            #                                                    profile_batch=(1, 10))
-
-            callbacks = [energy_callback,
-                         # tensorboard_callback
-                         ]
-
-            kwargs.setdefault("callbacks", list()).extend(callbacks)
-            if not enable_energy:
-                kwargs["verbose"] = 2
-            return original_function(*args, **kwargs)
-
-        return patched_fit
-
-    model = tensorflow.keras.models.Model
-    model.fit = get_patched_fit(model.fit)
-    model.fit_generator = get_patched_fit(model.fit_generator)
-
-    logger.log_event("experiment_begin")
+    sampling_manager.start()

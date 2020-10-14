@@ -1,7 +1,3 @@
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
-
-# %%
 import os
 import random
 import subprocess
@@ -12,17 +8,21 @@ from typing import List, Tuple, Dict, Union, Any, Hashable, Sequence, Optional
 import yaml
 from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
 
-from system_info import SystemInfo
+from .system_info import SystemInfo
 
 
-def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
+def load_experiment_definition(path: str) -> Union[Dict[Hashable, Any], list, None]:
     """Load the experiment definition, which is stored in
     `experiment.yaml`.
 
+    Args:
+        path: a path to an experiment definition yaml-file
+    
     Returns:
+        the experiment definion as a dict
 
     """
-    with open("../experiment.yaml", 'r') as stream:
+    with open(path, 'r') as stream:
         try:
             config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
@@ -34,10 +34,12 @@ def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
 
 def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
     """Load the benchmark definition yaml-file from the given path.
+    
     Args:
         path: a path to a benchmark definition yaml-file
 
-    Returns: the benchmark definition as a dict
+    Returns:
+        the benchmark definition as a dict
 
     """
     with open(path) as f:
@@ -57,7 +59,8 @@ def watt2milliwatt(value: Union[int, float, None]) -> Union[int, float, None]:
     Args:
         value: a power value measured in watt
 
-    Returns: a power value measured in milliwatt
+    Returns:
+        a power value measured in milliwatt
 
     """
     if value is None:
@@ -133,7 +136,8 @@ def randomly(seq: Sequence) -> List:
     Args:
         seq: a sequence to randomize
 
-    Returns: a shuffled list
+    Returns:
+        a shuffled list
 
     """
     shuffled = list(seq)
@@ -149,7 +153,8 @@ def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
         exp_config: the global experiment configuration
         bench_config: the configuration for a benchmark
 
-    Returns: a dict with a configuration that can be unpacked
+    Returns:
+        a dict with a configuration that can be unpacked
         and passed to the `run_benchmark` function.
 
     """
@@ -166,7 +171,7 @@ def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
 
 if __name__ == "__main__":
     benchmarks_dir = "../benchmarks"
-    experiments = load_experiment_definition()
+    experiments = load_experiment_definition("../experiment.yaml")
     experiments = experiments.get("experiments", [experiments])
     benchmarks = []
     # experiment
@@ -199,22 +204,3 @@ if __name__ == "__main__":
                     config["clocks"] = tuple(clock_limits)
                     run_benchmark(**config)
 
-    # from git import Repo
-    #
-    # repo = Repo("../")
-    # current_tag = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
-    #
-    # #assert current_tag is not None, "Error: Need a tagged commit to be checked out!"
-    # if current_tag is not None:
-    #     data_path = Path("../data") / str(current_tag.name)
-    # else:
-    #     data_path = Path("../data") / str(repo.head.commit.hexsha)
-    # data_path.mkdir(parents=True, exist_ok=False)
-    #
-    # run_all_power_cap_corse(data_path, 10)
-    #
-    # #run_all_clocks(data_path, 5)
-    #
-    # # reset clocks, when done
-    # SMIWrapper.set_clocks(None)
-    # SMIWrapper.set_power_limit(None)

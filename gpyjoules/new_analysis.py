@@ -1,8 +1,9 @@
+import itertools
 import json
 import re
 from functools import reduce
 from pathlib import Path
-from typing import Union, List, Dict, Optional, Sequence, Tuple
+from typing import Union, List, Dict, Optional, Sequence, Tuple, Iterable, AnyStr, Any
 
 import holoviews as hv
 import numpy as np
@@ -12,7 +13,21 @@ from holoviews import Dimension
 from scipy import integrate
 from scipy.interpolate import interp1d
 
-from src.util import TimestampInfo
+from gpyjoules.util import TimestampInfo
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def get_energy(power: Union[np.ndarray, Iterable], time: Union[np.ndarray, Iterable]) -> np.ndarray:
+    """Use the trapezoidal method to integrate power over time.
+
+    Args:
+        power: a sequence of power measurements
+        time: a sequence of timestamps, at which the measurements took place
+
+    Returns: the cumulative integral of the power, aka. the cumulative energy
+
+    """
+    return integrate.cumtrapz(power, time, initial=0)
 
 
 # class Dimension(NamedTuple):
@@ -82,11 +97,12 @@ def overlay_plots(plots: List):
     Returns: a singe hv-plot which contains all input plots
 
     """
-    #return reduce(lambda x, y: x * y, plots)
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    fig.axes.extend(plots)
-    return fig
+    return reduce(lambda x, y: x * y, plots)
+    # import matplotlib.pyplot as plt
+    # fig = plt.figure()
+    # fig.axes.extend(plots)
+    # return fig
+
 
 def make_title(plot, benchmark: Union["Benchmark", str]) -> None:
     """Generate a title for a hv-plot, based on dimension labels and benchmark name.
@@ -98,11 +114,11 @@ def make_title(plot, benchmark: Union["Benchmark", str]) -> None:
         y vs. x (benchmark_name)
 
     """
-    # if isinstance(benchmark, Benchmark):
-    #     benchmark = benchmark.name
-    # x, y, *_ = plot.dimensions()
-    # title = f"{y.label} vs. {x.label} ({benchmark_description.get(benchmark, benchmark)})"
-    # plot.opts(title=title)
+    if isinstance(benchmark, Benchmark):
+        benchmark = benchmark.name
+    x, y, *_ = plot.dimensions()
+    title = f"{y.label} vs. {x.label} ({benchmark_description.get(benchmark, benchmark)})"
+    plot.opts(title=title)
     return None
 
 
@@ -133,9 +149,9 @@ def apply_plot_default_settings(plot):
     Returns: the plot
 
     """
-    # replace_dimension_labels(plot)
+    replace_dimension_labels(plot)
     # make_title(plot)
-    return plot  # .opts(width=800, height=450)
+    return plot.opts(aspect=16/9, fig_bounds=(0, 0, 2, 2))#.opts(width=800, height=450)
 
 
 def atoi(text: str) -> Union[int, str]:
@@ -151,7 +167,7 @@ def atoi(text: str) -> Union[int, str]:
 
 
 # Source: https://stackoverflow.com/a/5967539/7997186
-def natural_keys(text):
+def natural_keys(text: str) -> List[Union[int, str]]:
     """
     alist.sort(key=natural_keys) sorts in human order
     http://nedbatchelder.com/blog/200712/human_sorting.html
@@ -206,7 +222,7 @@ def interpolate_df(df: pd.DataFrame, freq: float, start=0):
     return new_df
 
 
-def normalize_timestamp(x, start_time: pd.Timestamp):
+def normalize_timestamp(x: Sequence[pd.Timestamp], start_time: pd.Timestamp):
     """Normalizes a timestamp with a fixed start time.
     Turns a collection of absolute timestamps (datetime) into
     relative time (in seconds) since `start_time`.
@@ -221,7 +237,7 @@ def normalize_timestamp(x, start_time: pd.Timestamp):
     return (x - start_time) / np.timedelta64(1, 's')
 
 
-def identity_function(x):
+def identity_function(x: Any) -> Any:
     """A simple identity function.
     """
     return x
@@ -348,6 +364,7 @@ class Measurement:
         self.path = Path(path)
         self.name = name
         self.run = run
+        self.original_timestamp = None
         if df is None:
             self.data = self.load()
         else:
@@ -375,6 +392,7 @@ class Measurement:
             start_time: the reference for normalization
         """
         self["timestamp"] = normalize_timestamp(self["timestamp"], start_time)
+        self.original_timestamp = self.data.timestamp[self.data.timestamp > 0]
         # df = df[df.timestamp >= 0]
 
     def interpolate(self, freq: float, start: float = 0) -> None:
@@ -408,7 +426,7 @@ class Measurement:
         Returns: a holoviews plot of the metric with default settings applied
 
         """
-        return apply_plot_default_settings(self.data.plot(x="timestamp", y=metric, label=label))
+        return apply_plot_default_settings(hv.Curve(self.data.set_index("timestamp")[metric], label=label))
 
     def __add__(self, other):
         result = self.data + other.data
@@ -448,6 +466,7 @@ class BenchmarkRun:
     with a power or clock limit (such as 150W) configured.
 
     """
+
     def __init__(self, path: Union[Path, str], benchmark: "Benchmark"):
         self.path = Path(path)
         self.name = self.path.name
@@ -489,8 +508,16 @@ class BenchmarkRun:
         new_df = pd.DataFrame(new_df)
         return Measurement(self.path, f"{data_source}-{func}", self, df=new_df)
 
-    def get_total_values(self, aggregate: Union[str, callable] = None, data_source: str = "hd") -> pd.DataFrame:
+    def get_total_values(self, aggregate: Union[str, callable] = None, data_source: str = "joined") -> pd.DataFrame:
+        """Gets the total (or last values of cumulative series) for all repetitions of this BenchmarkRun.
 
+        Args:
+            aggregate: if provided, the totals of the repetitions will be aggregated using this function
+            data_source: selects, which data_source or measurement should be used
+
+        Returns: a dataframe with the total values
+
+        """
         values = [r.get_total_values(data_source) for r in self.repetitions]
         df = pd.DataFrame(values)
         if aggregate is not None:
@@ -498,10 +525,20 @@ class BenchmarkRun:
         df["run"] = self.name
         return df
 
-    def exclude_outliers(self, percentile: float = 0.95):
+    def get_original_timestamps(self, data_source: str) -> List[float]:
+        ts = [x.get_original_timestamps(data_source) for x in self.repetitions]
+        return list(itertools.chain.from_iterable(ts))
+
+    def exclude_outliers(self, percentile: float = 0.95) -> None:
+        """Exclude repetitions from this run, which took longer than the .95 percentile.
+
+        Args:
+            percentile: the cutoff percentile for exclusion
+
+        """
         total_times = [x.get_total_values().timestamp for x in self.repetitions]
         outlier_indices = np.argwhere(np.quantile(total_times, percentile) < total_times)
-        for [x] in outlier_indices:
+        for [x] in reversed(outlier_indices):
             self.repetitions.pop(x)
 
 
@@ -529,7 +566,15 @@ class BenchmarkRepetition:
     def __repr__(self):
         return self.__str__()
 
-    def prepare_data(self):
+    def prepare_data(self) -> None:
+        """Prepare data of this repetition by:
+            - normalizing timestamps
+            - interpolating
+            - converting power from milliwatt to watt
+            - calculating energy
+            - calculating edp
+
+        """
         for key, m in self.measurements.items():
             m.normalize_timestamps(self.start_index)
             m.interpolate(50)
@@ -552,9 +597,21 @@ class BenchmarkRepetition:
         # self.power_hd["power"] = self.interpolate(self.power_hd.timestamp, self.power_hd.power, 1/50)
 
     def _list_files(self) -> List[Path]:
+        """List all files in this repetition.
+        Returns: a list of paths
+
+        """
         return list(self.path.glob("*"))
 
+    def get_original_timestamps(self, data_source: str) -> Sequence[float]:
+        return np.diff(self.measurements[data_source].original_timestamp)
+
+
     def load_measurements(self) -> Dict[str, "Measurement"]:
+        """Load all measurements (sd and hd).
+        Returns: a dict mapping names to measurement objects
+
+        """
         sd = Measurement(self.path / "gpu-power.csv", "sd", self.run)
         sd.data["timestamp"] = pd.to_datetime(sd.data["timestamp"])
 
@@ -563,15 +620,30 @@ class BenchmarkRepetition:
         hd.data["timestamp"] = pd.to_datetime(hd.data["timestamp"], unit="us")
 
         measurements = [sd, hd]
+
+        external_path = self.path / "power-external.csv"
+        if external_path.exists():
+            external = Measurement(external_path, "external", self.run)
+            external.data["timestamp"] = pd.to_datetime(external.data["timestamp"])
+            external.data["power"] = external.data.filter(regex=r"d\dc\d").sum(axis=1)
+            measurements.append(external)
+
+
         return name_dict_from_list(measurements)
 
-    def add_joined_measurements(self):
+    def add_joined_measurements(self) -> None:
+        """Join sd and hd measurements and add them to the list of measurements.
+        """
         sd = self.measurements["sd"]
         hd = self.measurements["hd"]
         joined = sd.r_join(hd)
         self.measurements["joined"] = joined
 
     def _load_timestamps(self) -> Optional[TimestampInfo]:
+        """Load the event timestamps.
+        Returns: the timestamps
+
+        """
         path = self.path / "timestamps.csv"
         if path.exists():
             return TimestampInfo(pd.read_csv(path))
@@ -584,6 +656,10 @@ class BenchmarkRepetition:
     #     return df
 
     def _load_system_info(self) -> dict:
+        """Load the system-info json.
+        Returns: the system info (as a dict)
+
+        """
         with open(self.path / "system_info.json", "r") as f:
             return json.load(f)
 
@@ -594,8 +670,18 @@ class BenchmarkRepetition:
     #     return df
 
     def _get_start_index(self) -> np.datetime64:
+        """Find the start index to sync up all measurements.
+        If timestamps are present and the train_begin event was recorded,
+        it will be used as start marker.
+        Alternatively the first timestamp of the measurement, which started last will be chosen,
+        so all measurements are available for all points in time.
+        Returns: the start timestamp
+
+        """
         if self.timestamps is not None and self.timestamps.train_begin is not None:
-            return self.timestamps.train_begin
+            return self.timestamps.get_epoch_begin(1)
+        # if self.timestamps is not None and self.timestamps.train_begin is not None:
+        #     return self.timestamps.train_begin
         else:
             start_times = [x.data.timestamp.min() for x in self.measurements.values()]
             return max(start_times)
@@ -642,9 +728,9 @@ class Benchmark:
                 plots.append(plot)
             pass
 
-        plot = overlay_plots(plots)#.opts(legend_position='bottom_right')
+        plot = overlay_plots(plots).opts(legend_position='bottom_right')
         make_title(plot, self)
-        return plots
+        return apply_plot_default_settings(plot)
 
     def plot_raw_power(self, data_slice, data_source="hd"):
         return self.plot(metric="power",
@@ -668,8 +754,8 @@ class Benchmark:
 
     def boxplot(self, metric):
         df = self.get_total_values()
-        boxplot = df.plot.box(y=metric, by='run'
-                                , legend=True)
+        boxplot = df.hvplot.box(y=metric, by='run'
+                              , legend=True)
         return apply_plot_default_settings(boxplot)
 
     def aggregate(self, data_source: str = "joined", func: str = "mean", func2: str = "mean"):
@@ -692,7 +778,11 @@ class Benchmark:
 
     def plot_totals(self, x, y, aggregate="mean", data_source="joined"):
         totals = self.get_total_values(aggregate, data_source).sort_values(x)
-        return apply_plot_default_settings(totals.plot(x=x, y=y, hover_cols=["run"]))
+        return apply_plot_default_settings(hv.Curve(totals.set_index(x)[y], hover_cols=["run"]))
+
+    def get_original_timestamps(self, data_source: str) -> List[float]:
+        ts = [x.get_original_timestamps(data_source) for x in self.runs.values()]
+        return list(itertools.chain.from_iterable(ts))
 
     # def aggregate(self, data_source: str, func: str):
     #     dfs = [x.aggregate(data_source=data_source, func=func) for x in self.runs.values()]
@@ -720,8 +810,19 @@ class Experiment:
     def __repr__(self):
         return self.__str__()
 
+    def get_original_timestamps(self, data_source: str) -> List[float]:
+        ts = [x.get_original_timestamps(data_source) for x in self.benchmarks.values()]
+        return list(itertools.chain.from_iterable(ts))
+
 
 class DataLoader:
+    """This is the highest class in the data hierarchy.
+    The DataLoader loads data in the given data_root directory
+    from all experiments.
+    It provides convenience functions to calculate and plot aggregated results.
+
+    """
+
     def __init__(self, data_root: Union[str, Path]):
         self.data_root = Path(data_root)
         self.experiments = self._load_experiments()
@@ -732,7 +833,7 @@ class DataLoader:
         return name_dict_from_list(experiments)
 
     def plot(self, benchmark: str, metric, data_slice="mean", data_source="joined"):
-        benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
+        benchmarks: List[Benchmark] = [x.benchmarks[benchmark] for x in self.experiments.values()]
         plots = [b.plot(metric, data_slice, data_source) for b in benchmarks]
         return apply_plot_default_settings(overlay_plots(plots))
 
@@ -753,17 +854,27 @@ class DataLoader:
 
     def plot_totals(self, benchmark: str, x: str, y: str, aggregate="mean", data_source="joined"):
         totals = self.get_total_values(benchmark, aggregate, data_source).sort_values(x)
-        scatter = totals.plot.scatter(x=x, y=y, hover_cols=["run"])
+        scatter = hv.Scatter(totals.set_index(x)[y], hover_cols=["run"])
         scatter = apply_plot_default_settings(scatter)
         make_title(scatter, benchmark)
         return scatter  # * hv.Curve(scatter))
+
+    def get_original_timestamps(self, data_source: str) -> List[float]:
+        ts = [x.get_original_timestamps(data_source) for x in self.experiments.values()]
+        return list(itertools.chain.from_iterable(ts))
+
+    def plot_sample_frequency_distribution(self, data_source: str):
+        # this way of calculating includes some erroneous points between the different runs
+        ts = self.get_original_timestamps(data_source)
+        freq = 1/np.array(ts)
+        sns.distplot(freq)
+        plt.title(f"Distribution of Sample Frequency ({data_source})")
+        plt.xlabel("Sample Frequency (Hz)")
+        plt.ylabel("Density")
+        return np.mean(freq), np.std(freq), np.quantile(freq, 0.05), np.quantile(freq, 0.25),np.quantile(freq, 0.5),np.quantile(freq, 0.75)
 
     def __str__(self):
         return f"DataLoader({list(self.experiments.keys())})"
 
     def __repr__(self):
         return self.__str__()
-
-
-def get_energy(power, time):
-    return integrate.cumtrapz(power, time, initial=0)

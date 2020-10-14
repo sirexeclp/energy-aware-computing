@@ -1,13 +1,22 @@
+import argparse
 import os
 import runpy
-import argparse
 import sys
 from enum import Enum
+from multiprocessing import Event
+from multiprocessing.queues import Queue
 
+import data_collection
 import patch_keras
 
 
-def parse_args():
+def parse_args() -> "Namespace":
+    """Parse command line arguments using argparse.
+
+    Returns:
+        the parsed arguments
+
+    """
     parser = argparse.ArgumentParser(description='Monkey-Patch Keras to record energy measurements via nvidia-smi.')
 
     # Optional argument
@@ -33,19 +42,30 @@ def parse_args():
 
 
 class TfLogLevel(Enum):
+    """This enum represents the different logging
+    levels (verbosity) of tensorflow.
     """
-    0 = all messages are logged (default behavior)
-    1 = INFO messages are not printed
-    2 = INFO and WARNING messages are not printed
-    3 = INFO, WARNING, and ERROR messages are not printed
-    """
+
     all = "0"
+    """all messages are logged (default behavior)"""
     no_info = "1"
+    """INFO messages are not printed"""
     no_warning = "2"
+    """INFO and WARNING messages are not printed"""
     no_error = "3"
+    """INFO, WARNING, and ERROR messages are not printed"""
 
 
-if __name__ == '__main__':
+def main() -> None:
+    """Main function of this module.
+
+    1. Set correct arguments for wrapped module.
+    2. Set ``CUDA_VISIBLE_DEVICES`` environment variable
+    3. Set tensorflow log level
+    4. Monkey patch keras
+    5. Chdir if needed
+    6. Load and run the benchmark module
+    """
     args = parse_args()
 
     # set correct args for wrapped module
@@ -63,8 +83,13 @@ if __name__ == '__main__':
     # if args.power_limit is not None:
     #     SMIWrapper.set_power_limit(args.power_limit)
 
+    data_event = Event()
+    data_queue = Queue()
+
+    data_collection.start_collecting(data_root=args.data_directory, visible_devices=args.visible_devices)
+
     # patch keras
-    patch_keras.patch(args.data_directory, args.predict_energy, args.visible_devices)
+    patch_keras.patch(args.data_directory, args.predict_energy, args.visible_devices, data_event, data_queue)
 
     # chdir if requested
     if args.working_directory is not None:
@@ -73,3 +98,7 @@ if __name__ == '__main__':
 
     # run module
     runpy.run_module(args.module_name, run_name="__main__")
+
+
+if __name__ == '__main__':
+    main()

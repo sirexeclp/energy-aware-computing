@@ -8,7 +8,6 @@ import time
 import os
 import warnings
 # with warnings.catch_warnings():
-from builtins import function
 from typing import Union, Callable
 from multiprocessing import Event, Queue
 

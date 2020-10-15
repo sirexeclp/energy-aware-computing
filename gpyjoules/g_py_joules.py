@@ -6,8 +6,8 @@ from enum import Enum
 from multiprocessing import Event
 from multiprocessing.queues import Queue
 
-import data_collection
-import patch_keras
+from gpyjoules import data_collection
+from gpyjoules import patch_keras
 
 
 def parse_args() -> "Namespace":

@@ -1,0 +1,23 @@
+pandas
+numpy
+seaborn
+matplotlib~=3.3.1
+gitpython
+# tensorflow-gpu
+pint~=0.14
+pytest
+sklearn
+distro
+jupyterlab
+pyyaml
+transformers
+-e git+https://github.com/sirexeclp/nvidia-ml-py3.git#egg=pynvml3
+# -e git+https://github.com/sirexeclp/pynpoint.git#egg=pynpoint
+
+scipy
+scikit-learn
+ipython
+
+tensorflow~=2.3.0
+holoviews~=1.13.3
+sphinx

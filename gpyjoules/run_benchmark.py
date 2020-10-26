@@ -118,7 +118,7 @@ def run_benchmark(device_index: int, data_path: str, working_directory: str, mod
 
             SystemInfo.gather(device).save(data_path / "system_info.json")
 
-            args = ["python3", "-m", "g_py_joules", "-d", str(data_path.absolute()),  # "-e",
+            args = ["python3", "-m", "gpyjoules.g_py_joules", "-d", str(data_path.absolute()),  # "-e",
                     "-v", str(device_index), "-w", str(working_directory), module, "--"] + args
             print(args)
             try:

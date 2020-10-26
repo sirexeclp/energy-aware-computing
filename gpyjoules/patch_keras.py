@@ -143,7 +143,8 @@ class EnergyCallback(keras.callbacks.Callback):
             batch: index of this batch
             logs: no idea, what this does
         """
-        self.log_event("batch_end", batch)
+        pass
+        ## self.log_event("batch_end", batch)
         # self.total_batch += 1
         # if (self.total_batch % 100) == 0:
         #     with NVMLLib() as lib:
@@ -160,7 +161,8 @@ class EnergyCallback(keras.callbacks.Callback):
             batch: index of this batch
             logs: no idea, what this does
         """
-        self.log_event("batch_begin", batch)
+        # self.log_event("batch_begin", batch)
+        pass
 
     def on_epoch_begin(self, epoch: int, logs=None) -> None:
         """Callback: Log the begin of an epoch.

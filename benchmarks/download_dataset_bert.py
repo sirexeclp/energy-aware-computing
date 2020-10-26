@@ -214,5 +214,19 @@ eval_squad_examples = create_squad_examples(raw_eval_data)
 x_eval, y_eval = create_inputs_targets(eval_squad_examples)
 print(f"{len(eval_squad_examples)} evaluation points created.")
 
-with open("../gpyjoules/bert_data.pkl", "wb") as f:
-	pickle.dump([x_train, y_train, x_eval, y_eval], f)
+with open("benchmarks/bert_data.pkl", "wb") as f:
+    pickle.dump([x_train, y_train, x_eval, y_eval], f)
+
+
+def subset(data, fraction=0.01):
+    return [x[:int(len(x)*fraction)] for x in data]
+
+
+x_train_small = subset(x_train)
+y_train_small = subset(y_train)
+
+x_eval_small = subset(x_eval)
+y_eval_small = subset(y_eval)
+
+with open("benchmarks/bert_data_extra_small.pkl", "wb") as f:
+    pickle.dump([x_train_small, y_train_small, x_eval_small, y_eval_small], f)

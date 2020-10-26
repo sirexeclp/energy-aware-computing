@@ -1,4 +1,4 @@
 ---
   working_directory: ./
-  module: mnist_cnn
+  module: benchmarks.mnist_cnn
   args: []#["-c", "2", "-n", "512", "-b", "128"]

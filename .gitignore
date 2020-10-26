@@ -1,3 +1,5 @@
+venv.broken
+venv2
 *.pkl
 report.zip
 report

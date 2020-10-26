@@ -58,7 +58,7 @@ configuration = BertConfig()  # default parameters and configuration for BERT
 save_path = "bert/bert_base_uncased/"
 
 
-with open("bert_data_extra_small.pkl", "rb") as f:
+with open("benchmarks/bert_data_extra_small.pkl", "rb") as f:
     x_train, y_train, x_eval, y_eval = pickle.load(f)
 
 """

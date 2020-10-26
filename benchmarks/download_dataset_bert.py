@@ -214,5 +214,5 @@ eval_squad_examples = create_squad_examples(raw_eval_data)
 x_eval, y_eval = create_inputs_targets(eval_squad_examples)
 print(f"{len(eval_squad_examples)} evaluation points created.")
 
-with open("bert_data.pkl", "wb") as f:
+with open("../gpyjoules/bert_data.pkl", "wb") as f:
 	pickle.dump([x_train, y_train, x_eval, y_eval], f)

@@ -1,4 +1,4 @@
 ---
   working_directory: ./
-  module: cifar10_resnet
+  module: benchmarks.cifar10_resnet
   args: []#["-c", "2", "-n", "512", "-b", "128"]

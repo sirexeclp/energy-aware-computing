@@ -170,8 +170,8 @@ def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
 
 
 if __name__ == "__main__":
-    benchmarks_dir = "../benchmarks"
-    experiments = load_experiment_definition("../experiment.yaml")
+    benchmarks_dir = "benchmarks"
+    experiments = load_experiment_definition("experiment.yaml")
     experiments = experiments.get("experiments", [experiments])
     benchmarks = []
     # experiment

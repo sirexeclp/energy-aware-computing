@@ -3,8 +3,7 @@ import os
 import runpy
 import sys
 from enum import Enum
-from multiprocessing import Event
-from multiprocessing.queues import Queue
+from multiprocessing import Event, Queue
 
 from gpyjoules import data_collection
 from gpyjoules import patch_keras
@@ -86,10 +85,13 @@ def main() -> None:
     data_event = Event()
     data_queue = Queue()
 
-    data_collection.start_collecting(data_root=args.data_directory, visible_devices=args.visible_devices)
+    data_collection.start_collecting(data_root=args.data_directory,
+                                     visible_devices=args.visible_devices,
+                                     data_event=data_event, data_queue=data_queue)
 
     # patch keras
-    patch_keras.patch(args.data_directory, args.predict_energy, args.visible_devices, data_event, data_queue)
+    patch_keras.patch(args.data_directory, args.predict_energy,
+                      args.visible_devices, data_event, data_queue)
 
     # chdir if requested
     if args.working_directory is not None:

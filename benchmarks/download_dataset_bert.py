@@ -218,7 +218,7 @@ with open("benchmarks/bert_data.pkl", "wb") as f:
     pickle.dump([x_train, y_train, x_eval, y_eval], f)
 
 
-def subset(data, fraction=0.01):
+def subset(data, fraction=0.005):
     return [x[:int(len(x)*fraction)] for x in data]
 
 

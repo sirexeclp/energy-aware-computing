@@ -429,7 +429,8 @@ class ExternalCollector(Collector):
             for dev in self.serial_devices:
                 self.handles.append(pynpoint.MCP(dev))
             return True
-        except Exception:
+        except Exception as e:
+            print(e.message, type(e))
             return False
 
     def _on_start(self):

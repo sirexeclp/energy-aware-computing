@@ -16,6 +16,7 @@ import pandas as pd
 import pandas
 from pynvml3 import Device, NVMLLib, SamplingType, NVMLErrorNotFound, ClockType, ClockId, TemperatureSensors, \
     PcieUtilCounter, NVMLErrorNotSupported
+import pynpoint
 
 
 class ProcessTimer(abc.ABC):

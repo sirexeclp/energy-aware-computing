@@ -485,7 +485,22 @@ class BenchmarkRun:
         return self.__str__()
 
     def _load_repetitions(self) -> List["BenchmarkRepetition"]:
-        return [BenchmarkRepetition(x, self, self.benchmark) for x in sorted(self.path.glob("*"))]
+        """Load all benchmark repetitions of this benchmark run.
+
+        Returns:
+            a list of the benchmark repetitions for this run
+
+        """
+
+        reps = set(sorted(self.path.glob("*")))
+        result = []
+        for x in reps:
+            try:
+                rep = BenchmarkRepetition(x, self, self.benchmark)
+                result.append(rep)
+            except FileNotFoundError as e:
+                print(f"Rep {x.name} not loaded, Missing file:", e.filename)
+        return result
 
     def __getitem__(self, index):
         return self.repetitions[index]

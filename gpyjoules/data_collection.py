@@ -431,7 +431,8 @@ class ExternalCollector(Collector):
                 self.handles.append(pynpoint.MCP(dev))
             return True
         except Exception as e:
-            print(e.message, type(e))
+            print("Initializing external measurements failed!")
+            # print(e.message, type(e))
             return False
 
     def _on_start(self):

@@ -66,6 +66,7 @@ def get_baseline(args) -> None:
     data_collection.measure_baseline(data_root=args.data_directory,
                                      visible_devices=args.visible_devices,
                                      length=args.baseline_length)
+    exit(0)
 
 
 def main() -> None:
@@ -86,7 +87,9 @@ def main() -> None:
         if args.baseline_length is None:
             print("Missing argument baseline-length!")
             exit(-1)
-        get_baseline(args)
+        else:
+            get_baseline(args)
+        return
 
     # set correct args for wrapped module
     new_args = [sys.argv[0]]

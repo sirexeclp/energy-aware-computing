@@ -7,8 +7,7 @@ import atexit
 import multiprocessing
 import time
 from datetime import datetime
-from multiprocessing.queues import Queue
-from multiprocessing import Event
+from multiprocessing import Event, Queue
 from pathlib import Path
 from typing import Optional, Union, List, Dict, Tuple
 import pandas as pd
@@ -16,7 +15,12 @@ import pandas as pd
 import pandas
 from pynvml3 import Device, NVMLLib, SamplingType, NVMLErrorNotFound, ClockType, ClockId, TemperatureSensors, \
     PcieUtilCounter, NVMLErrorNotSupported
-import pynpoint
+# import pynpoint
+
+SAMPLES_INTERVAL = 1.5
+
+EXTERNAL_INTERVAL = 0.02
+SLOW_INTERVAL = 0.15
 
 
 class ProcessTimer(abc.ABC):
@@ -481,6 +485,7 @@ class CollectorManager:
     All registered collectors can be started and stopped
     with the start and stop method.
     """
+
     def __init__(self, data_path: Union[str, Path], device_id: int):
         """Creates a new CollectorManager instance.
         Args:
@@ -561,17 +566,31 @@ def start_collecting(data_root: str, visible_devices: int, data_event: Event, da
 
     sampling_manager = CollectorManager(data_root, visible_devices)
     sampling_manager.add(SlowCollector(visible_devices,
-                                       interval=0.15,
+                                       interval=SLOW_INTERVAL,
                                        path=data_root,
                                        args=(data_event, data_queue)))
 
-    external_collector = ExternalCollector(interval=0.02, path=data_root)
+    external_collector = ExternalCollector(interval=EXTERNAL_INTERVAL, path=data_root)
     sampling_manager.add(external_collector)
 
-    sampling_manager.add_by_sampling_type(sampling_types, interval=1.5)
+    sampling_manager.add_by_sampling_type(sampling_types, interval=SAMPLES_INTERVAL)
 
     @atexit.register
     def on_exit():
         sampling_manager.stop()
 
     sampling_manager.start()
+
+
+def measure_baseline(data_root: str, visible_devices: int, length: int) -> None:
+    """Measure baseline metrics on an idle system.
+    Start measurements as usual then sleep for ``length`` seconds
+    to get a baseline.
+
+    Args:
+        data_root: the parent directory in which to store all collected data
+        visible_devices: the index of the gpu device to collect from
+        length: the duration of the baseline measurement in seconds
+    """
+    start_collecting(data_root, visible_devices, Event(), Queue())
+    time.sleep(length)

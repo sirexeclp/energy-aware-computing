@@ -169,14 +169,37 @@ def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
     return config
 
 
+def get_baseline(data_path: str, device_index: int, baseline_length: int):
+    data_path = Path(data_path) / "_baseline"
+    data_path.mkdir(exist_ok=True, parents=True)
+    args = ["python3", "-m", "gpyjoules.g_py_joules", "-d", str(data_path.absolute()),
+            "-v", str(device_index), "None", "-b", "-bl", str(baseline_length)]
+    print(args)
+    try:
+        p = subprocess.Popen(args)
+        while p.poll() is None:
+            time.sleep(1)
+    except Exception as e:
+        p.kill()
+        raise e
+
+
+BASELINE_LENGTH = 60
+
 if __name__ == "__main__":
     benchmarks_dir = "benchmarks"
     experiments = load_experiment_definition("experiment.yaml")
     experiments = experiments.get("experiments", [experiments])
+
     benchmarks = []
     # experiment
     for experiment in experiments:
         print(f"Experiment: {experiment['experiment_name']}")
+
+        print("Getting baseline measurements ...")
+        get_baseline(experiment["data_path"], experiment["device_index"], BASELINE_LENGTH)
+        print("Done.")
+
         for bench in experiment["benchmarks"]:
             path = Path(benchmarks_dir) / bench
             path = path.with_suffix(".yaml")

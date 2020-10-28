@@ -4,6 +4,7 @@ import runpy
 import sys
 from enum import Enum
 from multiprocessing import Event, Queue
+from pathlib import Path
 
 from gpyjoules import data_collection
 from gpyjoules import patch_keras
@@ -34,6 +35,12 @@ def parse_args() -> "Namespace":
     parser.add_argument("-v", "--visible-devices", type=int, default=None
                         , help='Set CUDA_VISIBLE_DEVICES environment variable.')
 
+    parser.add_argument("-b", "--baseline",  action='store_true'
+                        , help='Record an idle, baseline measurement.')
+
+    parser.add_argument("-bl", "--baseline-length", type=int, default=None
+                        , help='The length of the baseline measurement in seconds.')
+
     parser.add_argument("module_name", type=str, help="Module to execute.")
 
     parser.add_argument('other', nargs='*', help="Additional args to pass on to the executed module.")
@@ -55,17 +62,31 @@ class TfLogLevel(Enum):
     """INFO, WARNING, and ERROR messages are not printed"""
 
 
+def get_baseline(args) -> None:
+    data_collection.measure_baseline(data_root=args.data_directory,
+                                     visible_devices=args.visible_devices,
+                                     length=args.baseline_length)
+
+
 def main() -> None:
     """Main function of this module.
 
     1. Set correct arguments for wrapped module.
     2. Set ``CUDA_VISIBLE_DEVICES`` environment variable
     3. Set tensorflow log level
-    4. Monkey patch keras
-    5. Chdir if needed
-    6. Load and run the benchmark module
+    4. Create event and cue for inter process communication
+    5. Start data collection (pass event & queue)
+    6. Monkey patch keras (pass event & queue)
+    7. Chdir if needed
+    8. Load and run the benchmark module
     """
     args = parse_args()
+
+    if args.baseline:
+        if args.baseline_length is None:
+            print("Missing argument baseline-length!")
+            exit(-1)
+        get_baseline(args)
 
     # set correct args for wrapped module
     new_args = [sys.argv[0]]
@@ -95,7 +116,7 @@ def main() -> None:
 
     # chdir if requested
     if args.working_directory is not None:
-        print(f"chdir to {args.working_directory}")
+        print(f"chdir to {Path(args.working_directory).absolute()}")
         os.chdir(args.working_directory)
 
     # run module

@@ -15,7 +15,7 @@ import pandas as pd
 import pandas
 from pynvml3 import Device, NVMLLib, SamplingType, NVMLErrorNotFound, ClockType, ClockId, TemperatureSensors, \
     PcieUtilCounter, NVMLErrorNotSupported
-# import pynpoint
+import pynpoint
 
 SAMPLES_INTERVAL = 1.5
 

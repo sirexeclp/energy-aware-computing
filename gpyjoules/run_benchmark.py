@@ -197,7 +197,7 @@ if __name__ == "__main__":
         print(f"Experiment: {experiment['experiment_name']}")
 
         print("Getting baseline measurements ...")
-        get_baseline(experiment["data_path"], experiment["device_index"], BASELINE_LENGTH)
+        get_baseline(experiment["data_path"], int(os.environ["NVIDIA_VISIBLE_DEVICES"]), BASELINE_LENGTH)
         print("Done.")
 
         for bench in experiment["benchmarks"]:

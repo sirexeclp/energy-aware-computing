@@ -169,7 +169,7 @@ def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
     return config
 
 
-def get_baseline(data_path: str, device_index: int, baseline_length: int):
+def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length: int):
     data_path = Path(data_path) / "_baseline"
     data_path.mkdir(exist_ok=True, parents=True)
     args = ["python3", "-m", "gpyjoules.g_py_joules", "-d", str(data_path.absolute()),
@@ -197,7 +197,8 @@ if __name__ == "__main__":
         print(f"Experiment: {experiment['experiment_name']}")
 
         print("Getting baseline measurements ...")
-        get_baseline(experiment["data_path"], int(os.environ["NVIDIA_VISIBLE_DEVICES"]), BASELINE_LENGTH)
+        get_baseline(Path(experiment["data_path"]) / experiment["experiment_name"],
+                     int(os.environ["NVIDIA_VISIBLE_DEVICES"]), BASELINE_LENGTH)
         print("Done.")
 
         for bench in experiment["benchmarks"]:

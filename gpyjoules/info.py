@@ -23,3 +23,5 @@ with lib:
 
         print("\t", gpu_clocks)
         print("selected for", mem, "\t", selected)
+        tuples = [f"- [ {mem}, {x} ]" for x in selected]
+        print("\n".join(tuples))

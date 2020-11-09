@@ -58,7 +58,26 @@ configuration = BertConfig()  # default parameters and configuration for BERT
 save_path = "bert/bert_base_uncased/"
 
 
-with open("benchmarks/bert_data_extra_small.pkl", "rb") as f:
+
+# we load the reduced dataset, to speed up the time for one epoch
+data_path = "benchmarks/bert_data_extra_small.pkl"
+
+
+def sha256sum(filename):
+    import hashlib
+    h  = hashlib.sha256()
+    b  = bytearray(128*1024)
+    mv = memoryview(b)
+    with open(filename, 'rb', buffering=0) as f:
+        for n in iter(lambda : f.readinto(mv), 0):
+            h.update(mv[:n])
+    return h.hexdigest()
+
+
+print(sha256sum(data_path))
+
+
+with open(data_path, "rb") as f:
     x_train, y_train, x_eval, y_eval = pickle.load(f)
 
 """

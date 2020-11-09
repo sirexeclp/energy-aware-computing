@@ -110,19 +110,24 @@ class ProcessTimer(abc.ABC):
         """This is the main loop run inside the subprocess.
         This method should not be overridden by subclasses.
         Instead implement ``_on_start``, ``_on_stop`` and ``_on_tick``.
+
+        Note:
+            We use open loop linear control (without any filtering what so ever)
+            which means we assumed that all operations take zero time except for
+            _on_tick and that time.sleep delays the execution by exactly
+            sleep_time seconds.
+
         """
         self._on_start()
-        self.last_time = time.time()
         while not self._stop.is_set():
-            iter_start = time.time()
+            pre_tick = time.time()
             self._on_tick(self.args, self.kwargs)
-            now = time.time()
-            sleep_time = self.interval - (now - self.last_time)
-            if (now - iter_start) > self.interval:
-                print(f"WARNING: can't keep up {(now - iter_start)}s")
-                # TODO: log that we are running late
-            self.last_time = now
-            time.sleep(max(sleep_time, 0))
+            post_tick = time.time()
+            sleep_time = self.interval - (post_tick - pre_tick)
+            if sleep_time < 0:
+                print(f"WARNING: can't keep up {(post_tick - pre_tick)}s")
+            else:
+                time.sleep(sleep_time)
         self._on_stop()
 
 

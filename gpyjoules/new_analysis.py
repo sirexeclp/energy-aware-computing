@@ -402,7 +402,12 @@ class Measurement:
             freq:
             start:
         """
-        self.data = interpolate_df(self.data.set_index("timestamp"), freq, start)
+        try:
+            self.data = interpolate_df(self.data.set_index("timestamp").sort_index(ascending=True).drop_duplicates(), freq, start)
+        except ValueError as e:
+            print("Error in", self.path)
+            print(self.data.set_index("timestamp"))
+            raise e
 
     def calculate_energy(self) -> None:
         """Calculate the cumulative energy (returned in kJ) using the columns power (W) and timestamp (s).
@@ -471,7 +476,9 @@ class BenchmarkRun:
         self.path = Path(path)
         self.name = self.path.name
 
-        self.name = self.name.split(",")[-1]
+        # we have to use the full name, because some gpu freqs are possible
+        # with different mem clocks and would be duplicated
+        self.name = self.name#.split(",")[-1]
 
         self.benchmark = benchmark
         self.experiment = self.benchmark.experiment

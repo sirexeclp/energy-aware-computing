@@ -1,7 +1,8 @@
 import json
 import platform
 import sys
-from typing import List, Tuple, NamedTuple
+from pathlib import Path
+from typing import List, Tuple, NamedTuple, Union
 
 import distro
 import pkg_resources
@@ -31,7 +32,16 @@ class SystemInfo(NamedTuple):
     # max_boost_clock_mem: int
 
     @classmethod
-    def gather(cls, device: Device):
+    def gather(cls, device: Device) -> "SystemInfo":
+        """Gather information about the system this is run on.
+
+        Args:
+            device: a pynvml3 GPU device object
+
+        Returns:
+            an system info object with system information
+
+        """
         system = device.lib.system
         info = cls(
             device_name=device.get_name(),
@@ -56,6 +66,10 @@ class SystemInfo(NamedTuple):
         )
         return info
 
-    def save(self, path):
+    def save(self, path: Union[str, Path]) -> None:
+        """Save the information as json.
+        Args:
+            path: the filename, where to save the info to
+        """
         with open(path, "w") as f:
             json.dump(self._asdict(), f)

@@ -74,7 +74,12 @@ def sha256sum(filename):
     return h.hexdigest()
 
 
-print(sha256sum(data_path))
+data_hash = sha256sum(data_path)
+if data_hash == "3ac3e94f479ac38c5006a636874d1963dcb21a9717ae592001144e71e9afb4b5":
+    print("hashes match")
+else:
+    print("hashes don't match!")
+    exit(-1)
 
 
 with open(data_path, "rb") as f:

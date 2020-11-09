@@ -11,9 +11,9 @@ from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
 from .system_info import SystemInfo
 
 
-def load_experiment_definition(path: str) -> Union[Dict[Hashable, Any], list, None]:
-    """Load the experiment definition, which is stored in
-    `experiment.yaml`.
+def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
+    """Load the experiment definition file which path is specified in
+    `platform.txt`.
 
     Args:
         path: a path to an experiment definition yaml-file
@@ -22,12 +22,15 @@ def load_experiment_definition(path: str) -> Union[Dict[Hashable, Any], list, No
         the experiment definion as a dict
 
     """
+    with open("platform.txt", "r") as f:
+        path = Path(f.readline())
+
     with open(path, 'r') as stream:
         try:
             config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
-            return
+            return None
 
     return config
 
@@ -188,7 +191,7 @@ BASELINE_LENGTH = 60
 
 if __name__ == "__main__":
     benchmarks_dir = "benchmarks"
-    experiments = load_experiment_definition("experiment.yaml")
+    experiments = load_experiment_definition()
     experiments = experiments.get("experiments", [experiments])
 
     benchmarks = []

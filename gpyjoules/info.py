@@ -9,13 +9,16 @@ with lib:
     name = dev.get_name()
     memory_clocks = dev.get_supported_memory_clocks()
 
-    print("Power Limit Constraints: ", dev.get_power_management_limit_constraints())
+    pl_constraints = dev.get_power_management_limit_constraints()
+    pl_constraints = np.array(pl_constraints) / 1_000 #mW 2 W
 
-    print(memory_clocks, "for", name)
-    run_per_mem = np.ceil(num_total_runs / len(memory_clocks))
+    print("Power Limit Constraints: ", pl_constraints)
+
+    print("Memory Clocks: ", memory_clocks, "for", name)
+    run_per_mem = int(np.ceil(num_total_runs / len(memory_clocks)))
     for mem in memory_clocks:
         gpu_clocks = np.array(dev.get_supported_graphics_clocks(mem))
-        selected_idx = np.linspace(0, len(gpu_clocks), run_per_mem)
+        selected_idx = np.linspace(0, len(gpu_clocks)-1, run_per_mem, dtype=np.int)
         selected = gpu_clocks[selected_idx]
 
         print("\t", gpu_clocks)

@@ -190,6 +190,6 @@ model.fit(
     y_train,
     epochs=2,  # For demonstration, 3 epochs are recommended
     verbose=1,
-    batch_size=16,
+    batch_size=8,
    # callbacks=[exact_match_callback],
 )

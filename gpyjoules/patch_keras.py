@@ -135,34 +135,34 @@ class EnergyCallback(keras.callbacks.Callback):
         self.data_event = data_event
         self.data_queue = data_queue
 
-    def on_train_batch_end(self, batch: int, logs=None) -> None:
-        """This callback gets called at the end of each training batch and
-        logs the end of a training batch.
-
-        Args:
-            batch: index of this batch
-            logs: no idea, what this does
-        """
-        pass
-        ## self.log_event("batch_end", batch)
-        # self.total_batch += 1
-        # if (self.total_batch % 100) == 0:
-        #     with NVMLLib() as lib:
-        #         device = Device.from_index(self.visible_devices)
-        #         device.set_power_management_limit(device.get_power_management_limit()-50_000)
-        #         t = time() - self.last_time
-        #         print(f"Testing PL: {device.get_power_management_limit()}W, Time: {t}")
-        #         self.last_time = time()
-
-    def on_train_batch_begin(self, batch: int, logs=None) -> None:
-        """Callback: Log the begin of a training batch.
-
-        Args:
-            batch: index of this batch
-            logs: no idea, what this does
-        """
-        # self.log_event("batch_begin", batch)
-        pass
+    # def on_train_batch_end(self, batch: int, logs=None) -> None:
+    #     """This callback gets called at the end of each training batch and
+    #     logs the end of a training batch.
+    #
+    #     Args:
+    #         batch: index of this batch
+    #         logs: no idea, what this does
+    #     """
+    #     pass
+    #     ## self.log_event("batch_end", batch)
+    #     # self.total_batch += 1
+    #     # if (self.total_batch % 100) == 0:
+    #     #     with NVMLLib() as lib:
+    #     #         device = Device.from_index(self.visible_devices)
+    #     #         device.set_power_management_limit(device.get_power_management_limit()-50_000)
+    #     #         t = time() - self.last_time
+    #     #         print(f"Testing PL: {device.get_power_management_limit()}W, Time: {t}")
+    #     #         self.last_time = time()
+    #
+    # def on_train_batch_begin(self, batch: int, logs=None) -> None:
+    #     """Callback: Log the begin of a training batch.
+    #
+    #     Args:
+    #         batch: index of this batch
+    #         logs: no idea, what this does
+    #     """
+    #     # self.log_event("batch_begin", batch)
+    #     pass
 
     def on_epoch_begin(self, epoch: int, logs=None) -> None:
         """Callback: Log the begin of an epoch.

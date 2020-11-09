@@ -17,6 +17,7 @@ from gpyjoules.util import TimestampInfo
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
 def get_energy(power: Union[np.ndarray, Iterable], time: Union[np.ndarray, Iterable]) -> np.ndarray:
     """Use the trapezoidal method to integrate power over time.
 
@@ -27,6 +28,8 @@ def get_energy(power: Union[np.ndarray, Iterable], time: Union[np.ndarray, Itera
     Returns: the cumulative integral of the power, aka. the cumulative energy
 
     """
+    if len(power) != len(time):
+        print("ups", len(power), len(time))
     return integrate.cumtrapz(power, time, initial=0)
 
 
@@ -151,7 +154,7 @@ def apply_plot_default_settings(plot):
     """
     replace_dimension_labels(plot)
     # make_title(plot)
-    return plot.opts(aspect=16/9, fig_bounds=(0, 0, 2, 2))#.opts(width=800, height=450)
+    return plot.opts(aspect=16 / 9, fig_bounds=(0, 0, 2, 2))  # .opts(width=800, height=450)
 
 
 def atoi(text: str) -> Union[int, str]:
@@ -211,6 +214,10 @@ def interpolate_df(df: pd.DataFrame, freq: float, start=0):
 
     """
     x = df.index
+
+    if np.any(x[1:] <= x[:-1]):
+        print("not sorted :(")
+
     new_df = {}
     for col in df:
         y = df[col]
@@ -361,10 +368,20 @@ class Measurement:
     """
 
     def __init__(self, path: Union[Path, str], name: str, run: "BenchmarkRun", df: Optional[pd.DataFrame] = None):
+        """Creates a new measurement object.
+
+        Args:
+            path: the path to the csv-file to load measurements from
+            name: a name for this measurement
+            run: a reference to the benchmark run this measurement belongs to
+            df: if a data-frame is provided use it as internal data representation
+                instead of loading data from file
+        """
         self.path = Path(path)
         self.name = name
         self.run = run
         self.original_timestamp = None
+        self.baseline = 750 * (7/8)
         if df is None:
             self.data = self.load()
         else:
@@ -385,6 +402,9 @@ class Measurement:
         df = pd.read_csv(self.path, index_col=0)
         return df
 
+    def subtract_baseline(self):
+        self["power"] = self["power"] - self.baseline
+
     def normalize_timestamps(self, start_time: pd.Timestamp) -> None:
         """Normalize the timestamps of the internal dataframe using the `normalize_timestamp` function.
 
@@ -397,6 +417,11 @@ class Measurement:
 
     def interpolate(self, freq: float, start: float = 0) -> None:
         """Interpolate all columns in the internal dataframe using the `interpolate_df` function.
+
+            Note:
+                We need to make sure that the timestamp index is sorted, for the
+                interpolation method to work.
+                Apparently the Tesla T4 GPU produces some out of order samples.
 
         Args:
             freq:
@@ -413,6 +438,8 @@ class Measurement:
         """Calculate the cumulative energy (returned in kJ) using the columns power (W) and timestamp (s).
         The result is stored in the column `energy`.
         """
+        if len(self["power"]) != len(self["timestamp"]):
+            print("ups", len(self["power"]), len(self["timestamp"]))
         self["energy"] = get_energy(self["power"], self["timestamp"]) / 1_000
 
     def calculate_edp(self):
@@ -473,6 +500,12 @@ class BenchmarkRun:
     """
 
     def __init__(self, path: Union[Path, str], benchmark: "Benchmark"):
+        """Create a new benchmark run object.
+
+        Args:
+            path: the path to the directory of this benchmark run
+            benchmark: a reference to the benchmark object this benchmark run belongs to
+        """
         self.path = Path(path)
         self.name = self.path.name
 
@@ -512,7 +545,7 @@ class BenchmarkRun:
     def __getitem__(self, index):
         return self.repetitions[index]
 
-    def aggregate(self, data_source: str, func: str):
+    def aggregate(self, data_source: str, func: str) -> "Measurement":
         """Aggregate data from multiple benchmark repetitions.
 
         Args:
@@ -520,6 +553,7 @@ class BenchmarkRun:
             func: an aggregation function to be applied across all repetitions
 
         Returns:
+            a new Measurement object containing the aggregated results
 
         """
         dfs = [x.measurements[data_source].data for x in self.repetitions]  # [:-1]
@@ -537,7 +571,8 @@ class BenchmarkRun:
             aggregate: if provided, the totals of the repetitions will be aggregated using this function
             data_source: selects, which data_source or measurement should be used
 
-        Returns: a dataframe with the total values
+        Returns:
+            a dataframe with the total values
 
         """
         values = [r.get_total_values(data_source) for r in self.repetitions]
@@ -548,6 +583,15 @@ class BenchmarkRun:
         return df
 
     def get_original_timestamps(self, data_source: str) -> List[float]:
+        """Return the timestamps (before interpolation) from all repetitions.
+
+        Args:
+            data_source:  selects, which data_source or measurement should be used
+
+        Returns:
+            a flattened list of float timestamps
+
+        """
         ts = [x.get_original_timestamps(data_source) for x in self.repetitions]
         return list(itertools.chain.from_iterable(ts))
 
@@ -565,7 +609,22 @@ class BenchmarkRun:
 
 
 class BenchmarkRepetition:
+    """Each benchmark run is repeated multiple times.
+    This class is used to represent each of these repetitions for each run.
+    Each repetition has on or more measurements.
+    This class also takes care of loading the measurements and prepare the data.
+
+    """
+
     def __init__(self, path: Union[Path, str], run: "BenchmarkRun", benchmark: "Benchmark"):
+        """Create a new benchmark run.
+
+        Args:
+            path: the path to this repetition on the filesystem,
+                which contains the files with actual measurements
+            run: a reference to the benchmark run this repetition belongs to
+            benchmark: a reference to the benchmark this repetition belongs to
+        """
         self.path = Path(path)
         self.name = self.path.name
         self.benchmark = benchmark
@@ -601,6 +660,8 @@ class BenchmarkRepetition:
             m.normalize_timestamps(self.start_index)
             m.interpolate(50)
             m.data["power"] = m.data["power"] / 1_000
+            if key == "external":
+                m.subtract_baseline()
             m.calculate_energy()
             m.calculate_edp()
 
@@ -620,14 +681,24 @@ class BenchmarkRepetition:
 
     def _list_files(self) -> List[Path]:
         """List all files in this repetition.
-        Returns: a list of paths
+        Returns:
+            a list of paths
 
         """
         return list(self.path.glob("*"))
 
     def get_original_timestamps(self, data_source: str) -> Sequence[float]:
-        return np.diff(self.measurements[data_source].original_timestamp)
+        """Return the diffs of timestamps (before interpolation)
+        from the specified measurement.
 
+        Args:
+            data_source:  selects, which data_source or measurement should be used
+
+        Returns:
+            a list of float with timestamp diffs
+
+        """
+        return np.diff(self.measurements[data_source].original_timestamp)
 
     def load_measurements(self) -> Dict[str, "Measurement"]:
         """Load all measurements (sd and hd).
@@ -648,8 +719,9 @@ class BenchmarkRepetition:
             external = Measurement(external_path, "external", self.run)
             external.data["timestamp"] = pd.to_datetime(external.data["timestamp"])
             external.data["power"] = external.data.filter(regex=r"d\dc\d").sum(axis=1)
+            # convert from centiWatt to milliWatt
+            external.data["power"] = external.data["power"] * 10
             measurements.append(external)
-
 
         return name_dict_from_list(measurements)
 
@@ -700,7 +772,7 @@ class BenchmarkRepetition:
         Returns: the start timestamp
 
         """
-        if self.timestamps is not None and self.timestamps.train_begin is not None:
+        if self.timestamps is not None and self.timestamps.epoch_count >= 2:
             return self.timestamps.get_epoch_begin(1)
         # if self.timestamps is not None and self.timestamps.train_begin is not None:
         #     return self.timestamps.train_begin
@@ -708,18 +780,58 @@ class BenchmarkRepetition:
             start_times = [x.data.timestamp.min() for x in self.measurements.values()]
             return max(start_times)
 
-    def plot(self, metric, data_source="joined"):
+    def plot(self, metric: str, data_source: str="joined", label: str=None) -> Union[hv.Curve, hv.Overlay]:
+        """Plot the selected metric vs. time.
+        Args:
+            label: optional label for this Curve
+            metric: a metric (such as power, energy, etc.) to plot
+            data_source:  selects, which data_source or measurement should be used
+
+        Returns:
+            an holoviews Curve or Overlay or something like that
+
+        """
+        label = self.run.name if label is None else label
         return self.measurements[data_source].plot(metric=metric, label=self.run.name)
 
     def get_total_values(self, data_source: str = "joined") -> pd.Series:
+        """Return the total values (last row), of the specified measurement.
+
+        Args:
+            data_source: select which data_source or measurement should be used
+
+        Returns:
+
+        """
         return self.measurements[data_source].data.iloc[-1].rename(self.name)
 
     def aggregate(self, data_source: str = "joined", func: str = "mean"):
+        """Aggregate the values of the the selected measurement (data_source)
+        with the given aggregation function.
+
+        Args:
+            data_source: select which data_source or measurement should be used
+            func: an aggregation function,
+                that is accepted by pd.DataFrame.aggregate
+
+        Returns:
+
+        """
         return self.measurements[data_source].data.aggregate(func)
 
 
 class Benchmark:
+    """
+    A Benchmark is a workload that is run with different
+    power or clock constraints (benchmark runs).
+    """
+
     def __init__(self, path: Union[Path, str], experiment: "Experiment"):
+        """Create a new Benchmark object.
+        Args:
+            path: the path of this object
+            experiment: the experiment this benchmark is part of
+        """
         self.path = Path(path)
         self.name = self.path.name
         self.experiment = experiment
@@ -732,21 +844,47 @@ class Benchmark:
         return self.__str__()
 
     def _load_runs(self) -> Dict[str, BenchmarkRun]:
-        paths = [str(p) for p in self.path.glob("*")]
+        """Load the runs of this benchmark.
+        Directories with leading underscore ``_`` such as
+        ``_baseline`` are excluded.
+
+        Returns:
+            a dictionary, which maps the names of runs to runs
+
+        """
+        paths = [str(p) for p in self.path.glob("*") if not p.name.startswith("_")]
         paths.sort(key=natural_keys)
         return dict(map(lambda x: (x.name, x), [BenchmarkRun(x, self) for x in paths]))
 
-    def plot(self, metric, data_slice="mean", data_source="joined"):
+    def plot(self, metric: str, data_slice: Union[str, int] = "mean"
+             , data_source: str = "joined", label_pre=""):
+        """Plot the selected metric from the selected repetition (or aggregated)
+        from the selected measurement (data_source).
+        The different runs will be plotted individually and then overlaid.
+
+        Args:
+            label_pre: prefix to add to each Curve label
+            metric: the metric (eg. power) to plot
+            data_slice: if an int is given, the respective repetition
+                will be plotted; if a string is given, it is interpreted as an
+                aggregation function and the aggregated
+                data (over all repetitions) will be plotted
+            data_source: select which data_source or measurement should be used
+
+        Returns:
+            an holoviews overlay as the plot
+
+        """
         plots = []
         if isinstance(data_slice, str):
             for key, run in self.runs.items():
                 aggregate: Measurement = run.aggregate(data_source, data_slice)
-                plot = aggregate.plot(metric=metric, label=key)
+                plot = aggregate.plot(metric=metric, label=label_pre+key)
                 plots.append(plot)
         else:
             for key, run in self.runs.items():
                 bench_rep: BenchmarkRepetition = run[data_slice]
-                plot = bench_rep.plot(metric=metric, data_source=data_source)
+                plot = bench_rep.plot(metric=metric, data_source=data_source, label=label_pre+key)
                 plots.append(plot)
             pass
 
@@ -754,15 +892,30 @@ class Benchmark:
         make_title(plot, self)
         return apply_plot_default_settings(plot)
 
-    def plot_raw_power(self, data_slice, data_source="hd"):
-        return self.plot(metric="power",
-                         data_slice=data_slice, data_source=data_source)
+    # def plot_raw_power(self, data_slice, data_source="hd"):
+    #     return self.plot(metric="power",
+    #                      data_slice=data_slice, data_source=data_source)
+    #
+    # def plot_energy(self, data_slice, data_source="hd"):
+    #     return self.plot(metric="energy",
+    #                      data_slice=data_slice, data_source=data_source)
 
-    def plot_energy(self, data_slice, data_source="hd"):
-        return self.plot(metric="energy",
-                         data_slice=data_slice, data_source=data_source)
+    def get_total_values(self, aggregate: Optional[str] = None,
+                         data_source: str = "joined") -> pd.DataFrame:
+        """Return the total values (last row), of the specified measurement (data_source)
+        for all repetitions of all runs of this benchmark.
+        If an aggregation function is specified, aggregate along the
+        repetition axis.
 
-    def get_total_values(self, aggregate=None, data_source="joined"):
+        Args:
+            data_source: select which data_source or measurement should be used
+            aggregate: if None, data is not aggregated; if an aggregation function
+                is provided (str) data will be aggregated over all repetitions
+
+        Returns:
+            a dataframe with the total values
+
+        """
         dfs = []
         for key, run in self.runs.items():
             dfs.append(run.get_total_values(aggregate=aggregate,
@@ -774,13 +927,44 @@ class Benchmark:
             df = pd.DataFrame(dfs)
             return df.set_index("run")
 
-    def boxplot(self, metric):
+    def boxplot(self, metric: str):
+        """Create a boxplot comparing the selected metric over the aggregates,
+        comparing the different runs.
+
+        Args:
+            metric: the metric to boxplot
+
+        Returns:
+            some holoviews object, i guess
+
+        """
         df = self.get_total_values()
-        boxplot = df.hvplot.box(y=metric, by='run'
-                              , legend=True)
+
+        # boxplot = df.hvplot.box(y=metric, by='run'
+        #                         , legend=True)
+        boxplot = hv.BoxWhisker(df, "run", metric, legend=True)
         return apply_plot_default_settings(boxplot)
 
-    def aggregate(self, data_source: str = "joined", func: str = "mean", func2: str = "mean"):
+    def aggregate(self, data_source: str = "joined", func: str = "mean", func2: str = "mean") -> pd.DataFrame:
+        """Aggregate runs along the repetition axis with func2 and along the
+        time axis with func.
+
+        Note:
+            The following metrics are always totals instead of aggregates:
+
+            - energy
+            - edp
+            - time(stamp)
+
+        Args:
+            data_source: select which data_source or measurement should be used
+            func: the aggregation function to use along the time axis
+            func2: the aggregation function to use along the repetition axis
+
+        Returns:
+            the aggregated data in a dataframe
+
+        """
         data = []
         for name, run in self.runs.items():
             tmp = run.aggregate(data_source, func2).data.aggregate(func)
@@ -792,17 +976,40 @@ class Benchmark:
         data = data.set_index("run")
 
         # use totals instead of aggregate for integrated values
-        totals = self.get_total_values(aggregate=func, data_source=data_source)
+        totals = self.get_total_values(aggregate=func2, data_source=data_source)
         data["energy"] = totals["energy"]
         data["edp"] = totals["edp"]
         data["timestamp"] = totals["timestamp"]
         return data
 
-    def plot_totals(self, x, y, aggregate="mean", data_source="joined"):
+    def plot_totals(self, x, y, aggregate="mean", data_source="joined") -> hv.Curve:
+        """Plot total values.
+
+        Args:
+            x: the metric to plot on the x axis
+            y: the metric to plot on the y axis
+            aggregate: the aggregation function to use along the repetition axis
+            data_source: select which data_source or measurement should be used
+
+        Returns:
+            the plot as a hv.Curve
+
+        """
         totals = self.get_total_values(aggregate, data_source).sort_values(x)
         return apply_plot_default_settings(hv.Curve(totals.set_index(x)[y], hover_cols=["run"]))
 
     def get_original_timestamps(self, data_source: str) -> List[float]:
+        """Return the diffs of timestamps (before interpolation)
+            from the specified measurement, collected from all runs
+            in a flat list.
+
+            Args:
+                data_source:  selects, which data_source or measurement should be used
+
+            Returns:
+                a list of float with timestamp diffs
+
+        """
         ts = [x.get_original_timestamps(data_source) for x in self.runs.values()]
         return list(itertools.chain.from_iterable(ts))
 
@@ -817,13 +1024,28 @@ class Benchmark:
 
 
 class Experiment:
+    """
+    An experiment is a collection of benchmarks which are run multiple times
+    with the same set of constraints (power limits, clock limits).
+    """
+
     def __init__(self, path: Union[str, Path]):
+        """Create a new Experiment object.
+        Args:
+            path: the path to the root folder of the experiment to be loaded
+        """
         self.path = Path(path)
         self.name = self.path.name
         self.benchmarks = self.load_benchmarks()
 
     def load_benchmarks(self) -> Dict[str, Benchmark]:
-        benchmarks = [Benchmark(x, self) for x in self.path.glob("*")]
+        """Load all benchmarks from this experiment.
+
+        Returns:
+            a dictionary mapping benchmark names to benchmark objects
+
+        """
+        benchmarks = [Benchmark(x, self) for x in self.path.glob("*") if not x.name.startswith("_")]
         return name_dict_from_list(benchmarks)
 
     def __str__(self):
@@ -833,6 +1055,17 @@ class Experiment:
         return self.__str__()
 
     def get_original_timestamps(self, data_source: str) -> List[float]:
+        """Return the diffs of timestamps (before interpolation)
+            from the specified measurement, collected from all benchmarks
+            in a flat list.
+
+        Args:
+            data_source:  selects, which data_source or measurement should be used
+
+        Returns:
+            a list of float with timestamp diffs
+
+        """
         ts = [x.get_original_timestamps(data_source) for x in self.benchmarks.values()]
         return list(itertools.chain.from_iterable(ts))
 
@@ -846,35 +1079,129 @@ class DataLoader:
     """
 
     def __init__(self, data_root: Union[str, Path]):
+        """Create a new data loader on the given path.
+        Args:
+            data_root: the root path of the data file system
+        """
         self.data_root = Path(data_root)
+        self.name = str(self.data_root.name)
         self.experiments = self._load_experiments()
 
     def _load_experiments(self):
+        """Load all experiments.
+
+        Returns:
+            a dict mapping experiment names to experiment objects
+
+        """
         experiment_paths = list(self.data_root.glob("*"))
-        experiments = [Experiment(path) for path in experiment_paths]
+        experiments = [Experiment(path) for path in experiment_paths if not path.name.startswith("_")]
         return name_dict_from_list(experiments)
 
-    def plot(self, benchmark: str, metric, data_slice="mean", data_source="joined"):
+    def plot(self, benchmark: str, metric: str
+             , data_slice: str = "mean", data_source: str = "joined"):
+        """Plot the selected metric for a benchmark over all
+        experiments.
+
+        Args:
+            benchmark: the name of a benchmark
+            metric: the metric to be plotted
+            data_slice: if an int is given, the respective repetition
+                will be plotted; if a string is given, it is interpreted as an
+                aggregation function and the aggregated
+                data (over all repetitions) will be plotted
+            data_source: select which data_source or measurement should be used
+
+        Returns:
+            an hv overlay or something like that
+
+        """
         benchmarks: List[Benchmark] = [x.benchmarks[benchmark] for x in self.experiments.values()]
         plots = [b.plot(metric, data_slice, data_source) for b in benchmarks]
         return apply_plot_default_settings(overlay_plots(plots))
 
-    def boxplot(self, benchmark: str, metric, data_slice="mean", data_source="joined"):
+    def boxplot(self, benchmark: str, metric: str, data_slice: str = "mean", data_source: str = "joined"):
+        """Create a boxplot of the selected metric for a given benchmark over
+        all experiments.
+
+        Args:
+            benchmark: the name of a benchmark
+            metric: the metric to be plotted
+            data_slice: if an int is given, the respective repetition
+                will be plotted; if a string is given, it is interpreted as an
+                aggregation function and the aggregated
+                data (over all repetitions) will be plotted
+            data_source: select which data_source or measurement should be used
+
+        Returns:
+            an hv overlay with a boxplot
+
+        """
         benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
         plots = [b.boxplot(metric) for b in benchmarks]
         return apply_plot_default_settings(overlay_plots(plots))
 
     def aggregate(self, benchmark: str, data_source: str = "joined", func: str = "mean", func2: str = "mean"):
+        """Aggregate runs of a specified benchmark from all experiments
+        along the repetition axis with func2 and along the
+        time axis with func.
+
+        Note:
+            The following metrics are always totals instead of aggregates:
+
+            - energy
+            - edp
+            - time(stamp)
+
+        Args:
+            benchmark: the name of the benchmark to select
+            data_source: select which data_source or measurement should be used
+            func: the aggregation function to use along the time axis
+            func2: the aggregation function to use along the repetition axis
+
+        Returns:
+            the aggregated data in a dataframe
+
+        """
         benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
         aggregates = [x.aggregate(data_source=data_source, func=func, func2=func2) for x in benchmarks]
         return pd.concat(aggregates)
 
     def get_total_values(self, benchmark: str, aggregate=None, data_source="joined"):
+        """Return the total values (last row), of the specified measurement (data_source)
+        for all repetitions of all runs of the specified benchmark from all
+        experiments.
+        If an aggregation function is specified, aggregate along the
+        repetition axis.
+
+        Args:
+            benchmark: the benchmark to select
+            data_source: select which data_source or measurement should be used
+            aggregate: if None, data is not aggregated; if an aggregation function
+                is provided (str) data will be aggregated over all repetitions
+
+        Returns:
+            a dataframe with the total values
+
+        """
         benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
         total_values = [x.get_total_values(aggregate=aggregate, data_source=data_source) for x in benchmarks]
         return pd.concat(total_values)
 
     def plot_totals(self, benchmark: str, x: str, y: str, aggregate="mean", data_source="joined"):
+        """Plot total values for the selected benchmark from all experiments.
+
+        Args:
+            benchmark: the benchmark for which to plot totals
+            x: the metric to plot on the x axis
+            y: the metric to plot on the y axis
+            aggregate: the aggregation function to use along the repetition axis
+            data_source: select which data_source or measurement should be used
+
+        Returns:
+            the plot as a hv.Curve
+
+        """
         totals = self.get_total_values(benchmark, aggregate, data_source).sort_values(x)
         scatter = hv.Scatter(totals.set_index(x)[y], hover_cols=["run"])
         scatter = apply_plot_default_settings(scatter)
@@ -882,21 +1209,57 @@ class DataLoader:
         return scatter  # * hv.Curve(scatter))
 
     def get_original_timestamps(self, data_source: str) -> List[float]:
+        """Return the diffs of timestamps (before interpolation)
+            from the specified measurement, collected from all experiments
+            in a flat list.
+
+        Args:
+            data_source:  selects, which data_source or measurement should be used
+
+        Returns:
+            a list of float with timestamp diffs
+
+        """
         ts = [x.get_original_timestamps(data_source) for x in self.experiments.values()]
         return list(itertools.chain.from_iterable(ts))
 
     def plot_sample_frequency_distribution(self, data_source: str):
+        """Plot the sample rate distribution for the given data source (measurement).
+
+        Args:
+            data_source: the data source to plot the sample rate distribution for
+
+        Returns:
+            a tuple of values (mean, std, q(0.005),q(0.25),q(0.5),q(0.75)
+
+        """
         # this way of calculating includes some erroneous points between the different runs
         ts = self.get_original_timestamps(data_source)
-        freq = 1/np.array(ts)
+        freq = 1 / np.array(ts)
         sns.distplot(freq)
         plt.title(f"Distribution of Sample Frequency ({data_source})")
         plt.xlabel("Sample Frequency (Hz)")
         plt.ylabel("Density")
-        return np.mean(freq), np.std(freq), np.quantile(freq, 0.05), np.quantile(freq, 0.25),np.quantile(freq, 0.5),np.quantile(freq, 0.75)
+        return np.mean(freq), np.std(freq), np.quantile(freq, 0.05), np.quantile(freq, 0.25), np.quantile(freq,
+                                                                                                          0.5), np.quantile(
+            freq, 0.75)
 
     def __str__(self):
         return f"DataLoader({list(self.experiments.keys())})"
 
     def __repr__(self):
         return self.__str__()
+
+
+if __name__ == '__main__':
+    data_root = Path("data")
+    data_sets = ["k80-2", "dgx9"]  # , "t4"]
+
+    loaders = [DataLoader(data_root / x) for x in data_sets]
+    # loader = DataLoader("data/t4-1")
+    # experiments = loader.experiments
+    # b = "mnist-dense"
+    # e = "power-limit"
+    # loader.plot_sample_frequency_distribution("sd")
+    # print(experiments)
+    # experiments[e].benchmarks[b].plot(metric="energy") #* k80_e[e].benchmarks[b].plot(metric="energy")

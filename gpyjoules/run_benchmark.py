@@ -23,7 +23,7 @@ def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
 
     """
     with open("platform.txt", "r") as f:
-        path = Path(f.readline())
+        path = Path(f.readline().strip())
 
     with open(path, 'r') as stream:
         try:

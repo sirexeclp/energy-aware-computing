@@ -138,9 +138,19 @@ model = Sequential()
 
 model.add(Input(shape=input_shape))
 model.add(Flatten())
+
 model.add(Dense(2048, activation='relu'))
-# model.add(Dense(2080, activation='relu'))
 model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation='relu'))
+
+
 model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
 

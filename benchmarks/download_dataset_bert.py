@@ -228,5 +228,11 @@ y_train_small = subset(y_train)
 x_eval_small = subset(x_eval)
 y_eval_small = subset(y_eval)
 
-with open("benchmarks/bert_data_extra_small.pkl", "wb") as f:
-    pickle.dump([x_train_small, y_train_small, x_eval_small, y_eval_small], f)
+#with open("benchmarks/bert_data_extra_small.pkl", "wb") as f:
+#    pickle.dump([x_train_small, y_train_small, x_eval_small, y_eval_small], f)
+
+np.save("benchmarks/x_train_small.np", x_train_small)
+np.save("benchmarks/y_train_small.np", y_train_small)
+
+np.save("benchmarks/x_eval_small.np", x_eval_small)
+np.save("benchmarks/y_eval_small.np", y_eval_small)

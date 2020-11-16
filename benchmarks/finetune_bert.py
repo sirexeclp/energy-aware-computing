@@ -78,6 +78,7 @@ def sha256sum(filename):
             h.update(mv[:n])
     return h.hexdigest()
 
+
 for file_name, hash_sum in hashes.items():
     data_hash = sha256sum(file_name)
     if data_hash != hash_sum:
@@ -86,21 +87,7 @@ for file_name, hash_sum in hashes.items():
 
 print("hashes match")
 
-# if data_hash == "bcb5d67d28bbca4cd553ee94576132a2129ccf19dda66c7e85cdcca6b568d50d":
-#     print("hashes match")
-# else:
-#     print("hashes don't match!")
-#     exit(-1)
-
-
-x_train = np.load("benchmarks/x_train_small.np")
-y_train = np.load("benchmarks/y_train_small.np")
-
-x_eval = np.load("benchmarks/x_eval_small.np")
-y_eval = np.load("benchmarks/y_eval_small.np")
-
-# with open(data_path, "rb") as f:
-#     x_train, y_train, x_eval, y_eval = pickle.load(f)
+x_train, y_train, x_eval, y_eval = [np.load(x) for x in hashes.keys()]
 
 """
 Create the Question-Answering Model using BERT and Functional API

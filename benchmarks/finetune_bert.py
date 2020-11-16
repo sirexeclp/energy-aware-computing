@@ -60,7 +60,12 @@ save_path = "bert/bert_base_uncased/"
 
 
 # we load the reduced dataset, to speed up the time for one epoch
-data_path = "benchmarks/bert_data_extra_small.pkl"
+hashes = {
+    "benchmarks/x_train_small.np": "bcb5d67d28bbca4cd553ee94576132a2129ccf19dda66c7e85cdcca6b568d50d",
+    "benchmarks/y_train_small.np": "332a3658be45edb75f93a421a3939b03926140d3cd59598864cce135fa339d77",
+    "benchmarks/x_eval_small.np": "f042d94a01c7554d50011fdf9189b5ac7c27b7a3b1ca7dccc2148cf8bf1232c9",
+    "benchmarks/y_eval_small.np": "707dafe3f3cffca320e3065bb1a538f691d1bdfbc91fff2540a4b97fcf9c5ded"
+}
 
 
 def sha256sum(filename):
@@ -69,21 +74,33 @@ def sha256sum(filename):
     b  = bytearray(128*1024)
     mv = memoryview(b)
     with open(filename, 'rb', buffering=0) as f:
-        for n in iter(lambda : f.readinto(mv), 0):
+        for n in iter(lambda: f.readinto(mv), 0):
             h.update(mv[:n])
     return h.hexdigest()
 
+for file_name, hash_sum in hashes.items():
+    data_hash = sha256sum(file_name)
+    if data_hash != hash_sum:
+        print("hashes don't match!", file_name)
+        exit(-1)
 
-data_hash = sha256sum(data_path)
-if data_hash == "3ac3e94f479ac38c5006a636874d1963dcb21a9717ae592001144e71e9afb4b5":
-    print("hashes match")
-else:
-    print("hashes don't match!")
-    exit(-1)
+print("hashes match")
+
+# if data_hash == "bcb5d67d28bbca4cd553ee94576132a2129ccf19dda66c7e85cdcca6b568d50d":
+#     print("hashes match")
+# else:
+#     print("hashes don't match!")
+#     exit(-1)
 
 
-with open(data_path, "rb") as f:
-    x_train, y_train, x_eval, y_eval = pickle.load(f)
+x_train = np.load("benchmarks/x_train_small.np")
+y_train = np.load("benchmarks/y_train_small.np")
+
+x_eval = np.load("benchmarks/x_eval_small.np")
+y_eval = np.load("benchmarks/y_eval_small.np")
+
+# with open(data_path, "rb") as f:
+#     x_train, y_train, x_eval, y_eval = pickle.load(f)
 
 """
 Create the Question-Answering Model using BERT and Functional API

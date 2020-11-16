@@ -125,7 +125,8 @@ class ProcessTimer(abc.ABC):
             post_tick = time.time()
             sleep_time = self.interval - (post_tick - pre_tick)
             if sleep_time < 0:
-                print(f"WARNING: can't keep up {(post_tick - pre_tick)}s")
+                # print(f"WARNING: can't keep up {(post_tick - pre_tick)}s")
+                pass
             else:
                 time.sleep(sleep_time)
         self._on_stop()

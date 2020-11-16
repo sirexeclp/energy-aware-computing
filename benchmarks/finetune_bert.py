@@ -87,7 +87,7 @@ for file_name, hash_sum in hashes.items():
 
 print("hashes match")
 
-x_train, y_train, x_eval, y_eval = [np.load(x) for x in hashes.keys()]
+x_train, y_train, x_eval, y_eval = [list(np.load(x)) for x in hashes.keys()]
 
 """
 Create the Question-Answering Model using BERT and Functional API

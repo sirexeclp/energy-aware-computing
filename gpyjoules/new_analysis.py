@@ -117,10 +117,13 @@ def make_title(plot, benchmark: Union["Benchmark", str]) -> None:
         y vs. x (benchmark_name)
 
     """
+    platform = ""
     if isinstance(benchmark, Benchmark):
+        platform = f" - {benchmark.experiment.loader.clean_name}"
         benchmark = benchmark.name
     x, y, *_ = plot.dimensions()
-    title = f"{y.label} vs. {x.label} ({benchmark_description.get(benchmark, benchmark)})"
+    title = f"{y.label} vs. {x.label} ({benchmark_description.get(benchmark, benchmark)})" + platform
+
     plot.opts(title=title)
     return None
 
@@ -381,7 +384,7 @@ class Measurement:
         self.name = name
         self.run = run
         self.original_timestamp = None
-        self.baseline = 750 * (7/8)
+        self.baseline = 723 * (7/8)
         if df is None:
             self.data = self.load()
         else:
@@ -447,6 +450,7 @@ class Measurement:
         The cumulative energy delay product is stored in the column edp.
         """
         self["edp"] = self["energy"] * self["timestamp"]
+        self["ed2p"] = self["edp"] * self["timestamp"]
 
     def plot(self, metric: str, label: str):
         """Use holoviews to generate a plot of the given metric, with time on the x axis.
@@ -516,7 +520,7 @@ class BenchmarkRun:
         self.benchmark = benchmark
         self.experiment = self.benchmark.experiment
         self.repetitions = self._load_repetitions()
-        self.exclude_outliers(0.95)
+        # self.exclude_outliers(0.95)
 
     def __str__(self):
         return f"BenchmarkRun({self.name})"
@@ -540,7 +544,7 @@ class BenchmarkRun:
                 result.append(rep)
             except FileNotFoundError as e:
                 print(f"Rep {x.name} not loaded, Missing file:", e.filename)
-        return result
+        return list(sorted(result, key=lambda x: x.name))
 
     def __getitem__(self, index):
         return self.repetitions[index]
@@ -1029,14 +1033,16 @@ class Experiment:
     with the same set of constraints (power limits, clock limits).
     """
 
-    def __init__(self, path: Union[str, Path]):
+    def __init__(self, path: Union[str, Path], loader: "DataLoader"):
         """Create a new Experiment object.
         Args:
             path: the path to the root folder of the experiment to be loaded
         """
         self.path = Path(path)
+        self.loader = loader
         self.name = self.path.name
         self.benchmarks = self.load_benchmarks()
+        # self.baseline = self.load_baseline()
 
     def load_benchmarks(self) -> Dict[str, Benchmark]:
         """Load all benchmarks from this experiment.
@@ -1047,6 +1053,13 @@ class Experiment:
         """
         benchmarks = [Benchmark(x, self) for x in self.path.glob("*") if not x.name.startswith("_")]
         return name_dict_from_list(benchmarks)
+
+    def load_baseline(self):
+        baseline_path = self.path / "_baseline"
+        external_baseline_path = baseline_path / "power-external.csv"
+        external_baseline = pd.read_csv(external_baseline_path)
+
+
 
     def __str__(self):
         return f"Experiment({self.name})"
@@ -1086,6 +1099,17 @@ class DataLoader:
         self.data_root = Path(data_root)
         self.name = str(self.data_root.name)
         self.experiments = self._load_experiments()
+        if len(self.experiments) == 0:
+            raise FileNotFoundError("No Data was loadded! Check your data path!")
+
+    @property
+    def clean_name(self):
+        if "k80" in self.name:
+            return "K80"
+        elif "dgx" in self.name:
+            return "V100"
+        elif "T4" in self.name:
+            return "T4"
 
     def _load_experiments(self):
         """Load all experiments.
@@ -1095,7 +1119,7 @@ class DataLoader:
 
         """
         experiment_paths = list(self.data_root.glob("*"))
-        experiments = [Experiment(path) for path in experiment_paths if not path.name.startswith("_")]
+        experiments = [Experiment(path, self) for path in experiment_paths if not path.name.startswith("_")]
         return name_dict_from_list(experiments)
 
     def plot(self, benchmark: str, metric: str
@@ -1253,9 +1277,10 @@ class DataLoader:
 
 if __name__ == '__main__':
     data_root = Path("data")
-    data_sets = ["k80-2", "dgx9"]  # , "t4"]
+    data_sets = ["k80-3"]#, "dgx9"]  # , "t4"]
 
     loaders = [DataLoader(data_root / x) for x in data_sets]
+    loaders[0].experiments["power-limit"].benchmarks["bert"].aggregate(func2=None)
     # loader = DataLoader("data/t4-1")
     # experiments = loader.experiments
     # b = "mnist-dense"

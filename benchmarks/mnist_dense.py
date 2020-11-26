@@ -98,7 +98,7 @@ from tensorflow.python.keras import Input
 
 batch_size = 128
 num_classes = 10
-epochs = 4 # 12
+epochs = 5 # 12
 
 # input image dimensions
 img_rows, img_cols = 28, 28

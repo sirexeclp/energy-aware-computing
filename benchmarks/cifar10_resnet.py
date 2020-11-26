@@ -14,7 +14,7 @@ import os
 
 # Training parameters
 batch_size = 128  # orig paper trained all networks with batch_size=128
-epochs = 2#5#20
+epochs = 3#5#20
 data_augmentation = False
 num_classes = 10
 

@@ -1,0 +1,18 @@
+pandas
+numpy
+seaborn
+matplotlib~=3.3.1
+gitpython
+# tensorflow-gpu
+pint~=0.14
+pytest
+sklearn
+distro
+jupyterlab
+pyyaml
+scipy
+scikit-learn
+ipython
+hvplot
+sphinx
+pylatex

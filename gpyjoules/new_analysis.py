@@ -29,7 +29,8 @@ def get_energy(power: Union[np.ndarray, Iterable], time: Union[np.ndarray, Itera
 
     """
     if len(power) != len(time):
-        print("ups", len(power), len(time))
+        raise IndexError(f"Expected power and time to have the same length!"
+                         f"Got len(power) = {len(power)} and len(time) = {len(time)}")
     return integrate.cumtrapz(power, time, initial=0)
 
 
@@ -182,56 +183,6 @@ def natural_keys(text: str) -> List[Union[int, str]]:
     return [atoi(c) for c in re.split(r'(\d+)', text)]
 
 
-def interpolate(x: Union[np.ndarray, List, pd.Series], y: Union[np.ndarray, List, pd.Series], freq: float,
-                start: float = 0):
-    """Interpolate the given signal y, which is sampled at points x using cubic interpolation
-    and sample a new signal at regular intervals defined by 1/freq, starting at the value start.
-
-    Args:
-        x: the timestamps of the given samples
-        y: the signal samples to be interpolated (amplitude)
-        freq: the frequency of the resulting sample of the interpolation
-        start: the timestamp or x value to start interpolating from until the end of the original signal is reached
-
-    Returns: an interpolated signal with equally spaced samples
-
-    """
-    x = np.array(x)
-    y = np.array(y)
-    x_tick = np.arange(start, x[-1], 1 / freq)
-    f_cubic = interp1d(x, y, kind="cubic")
-    return x_tick, f_cubic(x_tick)
-
-
-def interpolate_df(df: pd.DataFrame, freq: float, start=0):
-    """Interpolate signals in a dataframe.
-    All rows in the dataframe are interpolated.
-    The index is treated as sample spacing/timestamp (x).
-
-    Args:
-        df: a dataframe to interpolate
-        freq: the frequency of the resulting sample of the interpolation
-        start: the timestamp or x value to start interpolating from until the end of the original signal is reached
-
-    Returns: a new dataframe with interpolated rows
-
-    """
-    x = df.index
-
-    if np.any(x[1:] <= x[:-1]):
-        print("not sorted :(")
-
-    new_df = {}
-    for col in df:
-        y = df[col]
-        x_hat, y_hat = interpolate(x, y, freq, start)
-        new_df[col] = y_hat
-
-    new_df[x.name] = x_hat
-    new_df = pd.DataFrame(new_df)
-    return new_df
-
-
 def normalize_timestamp(x: Sequence[pd.Timestamp], start_time: pd.Timestamp):
     """Normalizes a timestamp with a fixed start time.
     Turns a collection of absolute timestamps (datetime) into
@@ -355,7 +306,7 @@ class LinearFit:
         return hv.Curve(data=(x_hat, y_hat))
 
     def __str__(self):
-        return f"LinearFit(degree: {self.degree}, R2: {self.r2():.3f}, MSE: {self.mse():.3f})"
+        return f"LinearFit(degree: {self.degree}, R2: {self.r2():.3f}, MSE: {self.mse():.3f}, m: {self.coefficients})"
 
     def __repr__(self):
         return self.__str__()
@@ -384,7 +335,7 @@ class Measurement:
         self.name = name
         self.run = run
         self.original_timestamp = None
-        self.baseline = 723 * (7/8)
+        self.baseline = 723 * (7 / 8)
         if df is None:
             self.data = self.load()
         else:
@@ -408,41 +359,25 @@ class Measurement:
     def subtract_baseline(self):
         self["power"] = self["power"] - self.baseline
 
-    def normalize_timestamps(self, start_time: pd.Timestamp) -> None:
+    def normalize_timestamps(self, start_time: np.datetime64, end_time: np.datetime64) -> None:
         """Normalize the timestamps of the internal dataframe using the `normalize_timestamp` function.
 
         Args:
             start_time: the reference for normalization
         """
+        end_time = normalize_timestamp(end_time, start_time)
         self["timestamp"] = normalize_timestamp(self["timestamp"], start_time)
-        self.original_timestamp = self.data.timestamp[self.data.timestamp > 0]
+        self.original_timestamp = self.data.timestamp[self.data.timestamp >= 0]
+        self.data = self.data.sort_values("timestamp")
+        if end_time > self.data.timestamp.iloc[-1]:
+            print(end_time, self.data.timestamp.iloc[-1], self.path)
+        self.data = self.data[(self.data.timestamp >= 0) & (self.data.timestamp < end_time)]
         # df = df[df.timestamp >= 0]
-
-    def interpolate(self, freq: float, start: float = 0) -> None:
-        """Interpolate all columns in the internal dataframe using the `interpolate_df` function.
-
-            Note:
-                We need to make sure that the timestamp index is sorted, for the
-                interpolation method to work.
-                Apparently the Tesla T4 GPU produces some out of order samples.
-
-        Args:
-            freq:
-            start:
-        """
-        try:
-            self.data = interpolate_df(self.data.set_index("timestamp").sort_index(ascending=True).drop_duplicates(), freq, start)
-        except ValueError as e:
-            print("Error in", self.path)
-            print(self.data.set_index("timestamp"))
-            raise e
 
     def calculate_energy(self) -> None:
         """Calculate the cumulative energy (returned in kJ) using the columns power (W) and timestamp (s).
         The result is stored in the column `energy`.
         """
-        if len(self["power"]) != len(self["timestamp"]):
-            print("ups", len(self["power"]), len(self["timestamp"]))
         self["energy"] = get_energy(self["power"], self["timestamp"]) / 1_000
 
     def calculate_edp(self):
@@ -496,120 +431,15 @@ class Measurement:
         joined = Measurement(self.path.parent, "joined", self.run, joined)
         return joined
 
+    def aggregate(self, func):
 
-class BenchmarkRun:
-    """A BenchmarkRun is a concrete configuration of benchmark, ie. a benchmark (such as 'bert')
-    with a power or clock limit (such as 150W) configured.
-
-    """
-
-    def __init__(self, path: Union[Path, str], benchmark: "Benchmark"):
-        """Create a new benchmark run object.
-
-        Args:
-            path: the path to the directory of this benchmark run
-            benchmark: a reference to the benchmark object this benchmark run belongs to
-        """
-        self.path = Path(path)
-        self.name = self.path.name
-
-        # we have to use the full name, because some gpu freqs are possible
-        # with different mem clocks and would be duplicated
-        self.name = self.name#.split(",")[-1]
-
-        self.benchmark = benchmark
-        self.experiment = self.benchmark.experiment
-        self.repetitions = self._load_repetitions()
-        # self.exclude_outliers(0.95)
-
-    def __str__(self):
-        return f"BenchmarkRun({self.name})"
-
-    def __repr__(self):
-        return self.__str__()
-
-    def _load_repetitions(self) -> List["BenchmarkRepetition"]:
-        """Load all benchmark repetitions of this benchmark run.
-
-        Returns:
-            a list of the benchmark repetitions for this run
-
-        """
-
-        reps = set(sorted(self.path.glob("*")))
-        result = []
-        for x in reps:
-            try:
-                rep = BenchmarkRepetition(x, self, self.benchmark)
-                result.append(rep)
-            except FileNotFoundError as e:
-                print(f"Rep {x.name} not loaded, Missing file:", e.filename)
-        return list(sorted(result, key=lambda x: x.name))
-
-    def __getitem__(self, index):
-        return self.repetitions[index]
-
-    def aggregate(self, data_source: str, func: str) -> "Measurement":
-        """Aggregate data from multiple benchmark repetitions.
-
-        Args:
-            data_source: selects the measurement of each repetition to be used
-            func: an aggregation function to be applied across all repetitions
-
-        Returns:
-            a new Measurement object containing the aggregated results
-
-        """
-        dfs = [x.measurements[data_source].data for x in self.repetitions]  # [:-1]
-        new_df = {}
-        for col in dfs[0]:
-            new_df[col] = pd.concat([x[col] for x in dfs], axis=1).aggregate(func, axis=1)  # .mean(axis=1)
-
-        new_df = pd.DataFrame(new_df)
-        return Measurement(self.path, f"{data_source}-{func}", self, df=new_df)
-
-    def get_total_values(self, aggregate: Union[str, callable] = None, data_source: str = "joined") -> pd.DataFrame:
-        """Gets the total (or last values of cumulative series) for all repetitions of this BenchmarkRun.
-
-        Args:
-            aggregate: if provided, the totals of the repetitions will be aggregated using this function
-            data_source: selects, which data_source or measurement should be used
-
-        Returns:
-            a dataframe with the total values
-
-        """
-        values = [r.get_total_values(data_source) for r in self.repetitions]
-        df = pd.DataFrame(values)
-        if aggregate is not None:
-            df = df.apply(aggregate)
-        df["run"] = self.name
-        return df
-
-    def get_original_timestamps(self, data_source: str) -> List[float]:
-        """Return the timestamps (before interpolation) from all repetitions.
-
-        Args:
-            data_source:  selects, which data_source or measurement should be used
-
-        Returns:
-            a flattened list of float timestamps
-
-        """
-        ts = [x.get_original_timestamps(data_source) for x in self.repetitions]
-        return list(itertools.chain.from_iterable(ts))
-
-    def exclude_outliers(self, percentile: float = 0.95) -> None:
-        """Exclude repetitions from this run, which took longer than the .95 percentile.
-
-        Args:
-            percentile: the cutoff percentile for exclusion
-
-        """
-        total_times = [x.get_total_values().timestamp for x in self.repetitions]
-        outlier_indices = np.argwhere(np.quantile(total_times, percentile) < total_times)
-        for [x] in reversed(outlier_indices):
-            self.repetitions.pop(x)
+        agg = self.data.aggregate(func)
+        totals = self.data.iloc[-1]
+        agg["energy"] = totals["energy"]
+        agg["timestamp"] = totals["timestamp"]
+        agg["edp"] = totals["edp"]
+        agg["ed2p"] = totals["ed2p"]
+        return agg
 
 
 class BenchmarkRepetition:
@@ -641,6 +471,7 @@ class BenchmarkRepetition:
 
         self.system_info = self._load_system_info()
         self.start_index = self._get_start_index()
+        self.end_index = self._get_end_index()
 
         self.prepare_data()
         self.add_joined_measurements()
@@ -661,8 +492,8 @@ class BenchmarkRepetition:
 
         """
         for key, m in self.measurements.items():
-            m.normalize_timestamps(self.start_index)
-            m.interpolate(50)
+            m.normalize_timestamps(self.start_index, self.end_index)
+            # convert from mW to W
             m.data["power"] = m.data["power"] / 1_000
             if key == "external":
                 m.subtract_baseline()
@@ -734,8 +565,8 @@ class BenchmarkRepetition:
         """
         sd = self.measurements["sd"]
         hd = self.measurements["hd"]
-        joined = sd.r_join(hd)
-        self.measurements["joined"] = joined
+        # joined = sd.r_join(hd)
+        # self.measurements["joined"] = joined
 
     def _load_timestamps(self) -> Optional[TimestampInfo]:
         """Load the event timestamps.
@@ -784,7 +615,19 @@ class BenchmarkRepetition:
             start_times = [x.data.timestamp.min() for x in self.measurements.values()]
             return max(start_times)
 
-    def plot(self, metric: str, data_source: str="joined", label: str=None) -> Union[hv.Curve, hv.Overlay]:
+    def _get_end_index(self):
+        if self.timestamps is not None and self.timestamps.epoch_count >= 2:
+            if self.timestamps.epoch_count >= 3:
+                return self.timestamps.get_epoch_end(self.timestamps.epoch_count - 2)
+            else:
+                return self.timestamps.get_epoch_end(self.timestamps.epoch_count - 1)
+        # if self.timestamps is not None and self.timestamps.train_begin is not None:
+        #     return self.timestamps.train_begin
+        else:
+            end_times = [x.data.timestamp.max() for x in self.measurements.values()]
+            return min(end_times)
+
+    def plot(self, metric: str, data_source: str = "hd", label: str = None) -> Union[hv.Curve, hv.Overlay]:
         """Plot the selected metric vs. time.
         Args:
             label: optional label for this Curve
@@ -798,18 +641,7 @@ class BenchmarkRepetition:
         label = self.run.name if label is None else label
         return self.measurements[data_source].plot(metric=metric, label=self.run.name)
 
-    def get_total_values(self, data_source: str = "joined") -> pd.Series:
-        """Return the total values (last row), of the specified measurement.
-
-        Args:
-            data_source: select which data_source or measurement should be used
-
-        Returns:
-
-        """
-        return self.measurements[data_source].data.iloc[-1].rename(self.name)
-
-    def aggregate(self, data_source: str = "joined", func: str = "mean"):
+    def aggregate(self, data_source: str = "hd", func: str = "mean"):
         """Aggregate the values of the the selected measurement (data_source)
         with the given aggregation function.
 
@@ -821,7 +653,110 @@ class BenchmarkRepetition:
         Returns:
 
         """
-        return self.measurements[data_source].data.aggregate(func)
+        if data_source == "joined":
+            hd = pd.DataFrame(self.measurements["hd"].aggregate(func))
+            sd = pd.DataFrame(self.measurements["sd"].aggregate(func))
+            joined = sd.join(hd, lsuffix="_sd")
+            joined = joined.drop(joined.filter(regex='_sd$').columns.tolist(), axis=1)
+            return joined
+        else:
+            return self.measurements[data_source].aggregate(func)
+
+
+class BenchmarkRun:
+    """A BenchmarkRun is a concrete configuration of benchmark, ie. a benchmark (such as 'bert')
+    with a power or clock limit (such as 150W) configured.
+
+    """
+
+    def __init__(self, path: Union[Path, str], benchmark: "Benchmark"):
+        """Create a new benchmark run object.
+
+        Args:
+            path: the path to the directory of this benchmark run
+            benchmark: a reference to the benchmark object this benchmark run belongs to
+        """
+        self.path = Path(path)
+        self.name = self.path.name
+
+        # we have to use the full name, because some gpu freqs are possible
+        # with different mem clocks and would be duplicated
+        self.name = self.name  # .split(",")[-1]
+
+        self.benchmark = benchmark
+        self.experiment = self.benchmark.experiment
+        self.repetitions = self._load_repetitions()
+        # self.exclude_outliers(0.95)
+
+    def __str__(self):
+        return f"BenchmarkRun({self.name})"
+
+    def __repr__(self):
+        return self.__str__()
+
+    def _load_repetitions(self) -> List["BenchmarkRepetition"]:
+        """Load all benchmark repetitions of this benchmark run.
+
+        Returns:
+            a list of the benchmark repetitions for this run
+
+        """
+
+        reps = set(sorted(self.path.glob("*")))
+        result = []
+        for x in reps:
+            try:
+                rep = BenchmarkRepetition(x, self, self.benchmark)
+                result.append(rep)
+            except FileNotFoundError as e:
+                print(f"Rep {x.name} not loaded, Missing file:", e.filename)
+        return list(sorted(result, key=lambda x: x.name))
+
+    def __getitem__(self, index):
+        return self.repetitions[index]
+
+    def aggregate(self, data_source: str, agg_rep: str, agg_time: str = "mean") -> "Measurement":
+        """Aggregate data from multiple benchmark repetitions.
+
+        Args:
+            data_source: selects the measurement of each repetition to be used
+            func: an aggregation function to be applied across all repetitions
+
+        Returns:
+            a new Measurement object containing the aggregated results
+
+        """
+        aggs = [x.aggregate(data_source, agg_time) for x in self.repetitions]  # [:-1]
+        new_df = pd.DataFrame(aggs)
+        if agg_rep:
+            new_df = new_df.aggregate(agg_rep)
+
+        return new_df
+
+    def get_original_timestamps(self, data_source: str) -> List[float]:
+        """Return the timestamps (before interpolation) from all repetitions.
+
+        Args:
+            data_source:  selects, which data_source or measurement should be used
+
+        Returns:
+            a flattened list of float timestamps
+
+        """
+        ts = [x.get_original_timestamps(data_source) for x in self.repetitions]
+        return list(itertools.chain.from_iterable(ts))
+
+    def exclude_outliers(self, percentile: float = 0.95) -> None:
+        """Exclude repetitions from this run, which took longer than the .95 percentile.
+
+        Args:
+            percentile: the cutoff percentile for exclusion
+
+        """
+        total_times = [x.get_total_values().timestamp for x in self.repetitions]
+        outlier_indices = np.argwhere(np.quantile(total_times, percentile) < total_times)
+        for [x] in reversed(outlier_indices):
+            self.repetitions.pop(x)
 
 
 class Benchmark:
@@ -883,12 +818,12 @@ class Benchmark:
         if isinstance(data_slice, str):
             for key, run in self.runs.items():
                 aggregate: Measurement = run.aggregate(data_source, data_slice)
-                plot = aggregate.plot(metric=metric, label=label_pre+key)
+                plot = aggregate.plot(metric=metric, label=label_pre + key)
                 plots.append(plot)
         else:
             for key, run in self.runs.items():
                 bench_rep: BenchmarkRepetition = run[data_slice]
-                plot = bench_rep.plot(metric=metric, data_source=data_source, label=label_pre+key)
+                plot = bench_rep.plot(metric=metric, data_source=data_source, label=label_pre + key)
                 plots.append(plot)
             pass
 
@@ -903,33 +838,6 @@ class Benchmark:
     # def plot_energy(self, data_slice, data_source="hd"):
     #     return self.plot(metric="energy",
     #                      data_slice=data_slice, data_source=data_source)
-
-    def get_total_values(self, aggregate: Optional[str] = None,
-                         data_source: str = "joined") -> pd.DataFrame:
-        """Return the total values (last row), of the specified measurement (data_source)
-        for all repetitions of all runs of this benchmark.
-        If an aggregation function is specified, aggregate along the
-        repetition axis.
-
-        Args:
-            data_source: select which data_source or measurement should be used
-            aggregate: if None, data is not aggregated; if an aggregation function
-                is provided (str) data will be aggregated over all repetitions
-
-        Returns:
-            a dataframe with the total values
-
-        """
-        dfs = []
-        for key, run in self.runs.items():
-            dfs.append(run.get_total_values(aggregate=aggregate,
-                                            data_source=data_source))
-
-        if aggregate is None:
-            return pd.concat(dfs)
-        else:
-            df = pd.DataFrame(dfs)
-            return df.set_index("run")
 
     def boxplot(self, metric: str):
         """Create a boxplot comparing the selected metric over the aggregates,
@@ -949,7 +857,7 @@ class Benchmark:
         boxplot = hv.BoxWhisker(df, "run", metric, legend=True)
         return apply_plot_default_settings(boxplot)
 
-    def aggregate(self, data_source: str = "joined", func: str = "mean", func2: str = "mean") -> pd.DataFrame:
+    def aggregate(self, data_source: str, agg_rep: str = "mean", agg_time: str = "mean") -> pd.DataFrame:
         """Aggregate runs along the repetition axis with func2 and along the
         time axis with func.
 
@@ -971,19 +879,15 @@ class Benchmark:
         """
         data = []
         for name, run in self.runs.items():
-            tmp = run.aggregate(data_source, func2).data.aggregate(func)
-            tmp = dict(tmp)
+            tmp = run.aggregate(data_source, agg_rep=agg_rep, agg_time=agg_time)
             tmp["run"] = name
             data.append(tmp)
 
-        data = pd.DataFrame(data)
+        if agg_rep:
+            data = pd.DataFrame(data)
+        else:
+            data = pd.concat(data)
         data = data.set_index("run")
-
-        # use totals instead of aggregate for integrated values
-        totals = self.get_total_values(aggregate=func2, data_source=data_source)
-        data["energy"] = totals["energy"]
-        data["edp"] = totals["edp"]
-        data["timestamp"] = totals["timestamp"]
         return data
 
     def plot_totals(self, x, y, aggregate="mean", data_source="joined") -> hv.Curve:
@@ -1059,8 +963,6 @@ class Experiment:
         external_baseline_path = baseline_path / "power-external.csv"
         external_baseline = pd.read_csv(external_baseline_path)
 
-
-
     def __str__(self):
         return f"Experiment({self.name})"
 
@@ -1104,11 +1006,11 @@ class DataLoader:
 
     @property
     def clean_name(self):
-        if "k80" in self.name:
+        if "k80" in self.name.lower():
             return "K80"
-        elif "dgx" in self.name:
+        elif "dgx" in self.name.lower():
             return "V100"
-        elif "T4" in self.name:
+        elif "t4" in self.name.lower():
             return "T4"
 
     def _load_experiments(self):
@@ -1123,7 +1025,7 @@ class DataLoader:
         return name_dict_from_list(experiments)
 
     def plot(self, benchmark: str, metric: str
-             , data_slice: str = "mean", data_source: str = "joined"):
+             , data_slice: str = "mean", data_source: str = "hd"):
         """Plot the selected metric for a benchmark over all
         experiments.
 
@@ -1165,7 +1067,7 @@ class DataLoader:
         plots = [b.boxplot(metric) for b in benchmarks]
         return apply_plot_default_settings(overlay_plots(plots))
 
-    def aggregate(self, benchmark: str, data_source: str = "joined", func: str = "mean", func2: str = "mean"):
+    def aggregate(self, benchmark: str, data_source: str = "hd", agg_time: str = "mean", agg_rep: str = "mean"):
         """Aggregate runs of a specified benchmark from all experiments
         along the repetition axis with func2 and along the
         time axis with func.
@@ -1188,29 +1090,8 @@ class DataLoader:
 
         """
         benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
-        aggregates = [x.aggregate(data_source=data_source, func=func, func2=func2) for x in benchmarks]
+        aggregates = [x.aggregate(data_source=data_source, agg_time=agg_time, agg_rep=agg_rep) for x in benchmarks]
         return pd.concat(aggregates)
-
-    def get_total_values(self, benchmark: str, aggregate=None, data_source="joined"):
-        """Return the total values (last row), of the specified measurement (data_source)
-        for all repetitions of all runs of the specified benchmark from all
-        experiments.
-        If an aggregation function is specified, aggregate along the
-        repetition axis.
-
-        Args:
-            benchmark: the benchmark to select
-            data_source: select which data_source or measurement should be used
-            aggregate: if None, data is not aggregated; if an aggregation function
-                is provided (str) data will be aggregated over all repetitions
-
-        Returns:
-            a dataframe with the total values
-
-        """
-        benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
-        total_values = [x.get_total_values(aggregate=aggregate, data_source=data_source) for x in benchmarks]
-        return pd.concat(total_values)
 
     def plot_totals(self, benchmark: str, x: str, y: str, aggregate="mean", data_source="joined"):
         """Plot total values for the selected benchmark from all experiments.
@@ -1226,7 +1107,7 @@ class DataLoader:
             the plot as a hv.Curve
 
         """
-        totals = self.get_total_values(benchmark, aggregate, data_source).sort_values(x)
+        totals = self.aggregate(benchmark, data_source).sort_values(x)
         scatter = hv.Scatter(totals.set_index(x)[y], hover_cols=["run"])
         scatter = apply_plot_default_settings(scatter)
         make_title(scatter, benchmark)
@@ -1277,7 +1158,7 @@ class DataLoader:
 
 if __name__ == '__main__':
     data_root = Path("data")
-    data_sets = ["k80-3"]#, "dgx9"]  # , "t4"]
+    data_sets = ["k80-3"]  # , "dgx9"]  # , "t4"]
 
     loaders = [DataLoader(data_root / x) for x in data_sets]
     loaders[0].experiments["power-limit"].benchmarks["bert"].aggregate(func2=None)

@@ -7,13 +7,17 @@ services:
     # user: "$UID"
     runtime: "nvidia"
     environment:
-      - NVIDIA_VISIBLE_DEVICES=1
+      - NVIDIA_VISIBLE_DEVICES=3
     build:
       context: .
       dockerfile: dockerfile
       args:
-        uid: "$UID"
-        group_id: "$GID"
+        uid: 6396
+#"$UID"
+        group_id: 5000
+#"$GID"
+        LICENSE: "yes"
+
     volumes:
     - .:/code
     - /tmp/data-test:/tmp/data-test

@@ -10,6 +10,15 @@ from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
 
 from .system_info import SystemInfo
 
+EXPERIMENTS_PATH = Path("experiments")
+
+def get_hostname() -> str:
+    """Return the hostname."""
+    hostname = os.environ.get("HOST")
+    if hostname is None:
+        hostname = os.environ.get("HOSTNAME")
+    return hostname
+
 
 def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
     """Load the experiment definition file which path is specified in
@@ -22,17 +31,16 @@ def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
         the experiment definion as a dict
 
     """
-    with open("platform.txt", "r") as f:
-        path = Path(f.readline().strip())
 
-    with open(path, 'r') as stream:
-        try:
+    host_name = get_hostname()
+    experiments = []
+    for path in EXPERIMENTS_PATH.rglob("*.yml"):
+        with open(path, "rb") as stream:
             config = yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
-            return None
-
-    return config
+            for experiment in config["experiments"]:
+                if experiment.get("host", None) == host_name:
+                    experiments.append(experiment)
+    return experiments
 
 
 def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:

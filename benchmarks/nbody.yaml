@@ -1,0 +1,4 @@
+---
+  working_directory: ./
+  module: benchmarks.nbody
+  args: []#["-c", "2", "-n", "512", "-b", "128"]

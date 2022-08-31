@@ -1,0 +1,23 @@
+FROM ibmcom/powerai:1.7.0-tensorflow-ubuntu18.04-py37
+#tensorflow/tensorflow:2.3.0-gpu
+
+RUN sudo apt-get update && \
+      sudo apt-get -y install git
+
+RUN sudo apt-get -y install freeglut3 libglu1 libgl1 python3-pip
+
+RUN sudo apt install -y python3-pandas python3-matplotlib
+COPY requirements.txt requirements.txt
+#RUN  sudo pip3 install -r requirements.txt
+#RUN  rm requirements.txt
+
+RUN pip3 list | grep setup
+
+RUN pip3 install git+https://github.com/sirexeclp/pynpoint.git#egg=pynpoint
+ARG uid
+ARG group_id
+RUN echo "using uid: $uid"
+
+USER user
+
+CMD ["bash", "/code/run.sh"]

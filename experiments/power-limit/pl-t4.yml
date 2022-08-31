@@ -1,0 +1,41 @@
+experiments:
+  - experiment_name: "power-limit"
+    repeat: 5
+    power_limits:
+      - 60
+      - 65
+      - 70
+    data_path: /tmp/data-test
+    benchmarks:
+      - mnist-cnn
+      - mnist-dense
+      - resnet
+      - bert
+      - nbody
+#  - experiment_name: "clock-limit"
+#    repeat: 5
+#    clock_limits:
+#      - [ 5001, 1590 ]
+#      - [ 5001, 1275 ]
+#      - [ 5001, 945 ]
+#      - [ 5001, 630 ]
+#      - [ 5001, 300 ]
+#      - [ 405, 645 ]
+#      - [ 405, 570 ]
+#      - [ 405, 480 ]
+#      - [ 405, 390 ]
+#      - [ 405, 300 ]
+#    data_path: /tmp/data-test
+#    benchmarks:
+#      - mnist-cnn
+#      - mnist-dense
+#      - resnet
+#      - bert
+#      - nbody
+
+# choosen clocks
+# array([ 135.,  290.,  445.,  600.,  755.,  910., 1065., 1220., 1375.,
+#       1530.])
+# nearest possible values
+#1530, 1372, 1222, 1065,  907,  757,  600,  442,  292,  135
+

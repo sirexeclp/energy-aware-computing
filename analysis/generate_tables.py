@@ -5,7 +5,7 @@ import hvplot.pandas
 import holoviews as hv
 from bokeh.models import HoverTool
 from gpyjoules.util import TimestampInfo
-from gpyjoules.new_analysis import *
+from analysis.new_analysis import *
 import bokeh.themes
 from pathlib import Path
 import pandas as pd

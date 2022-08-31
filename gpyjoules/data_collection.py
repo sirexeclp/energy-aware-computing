@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Optional, Union, List, Dict, Tuple
 import pandas as pd
 
-import pandas
 from pynvml3 import (
     Device,
     NVMLLib,
@@ -236,8 +235,9 @@ class Collector(ProcessTimer):
 
 
 class SampleCollector(Collector):
-    """This implements a collector using the ``get_sample`` (``nvmlDeviceGetSamples``) method of the
-    gpu Device object.
+    """This implements a collector.
+
+    It uses the ``get_sample`` (``nvmlDeviceGetSamples``) method of the gpu Device object.
     """
 
     def __init__(

@@ -1,0 +1,2 @@
+nvidia-docker run  --rm -it -v /tmp:/code energy-aware-computing_energy-benchmark /bin/bash -c "cd /code && sudo rm -rf /code/data-test"
+

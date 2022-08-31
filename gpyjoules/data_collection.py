@@ -13,8 +13,17 @@ from typing import Optional, Union, List, Dict, Tuple
 import pandas as pd
 
 import pandas
-from pynvml3 import Device, NVMLLib, SamplingType, NVMLErrorNotFound, ClockType, ClockId, TemperatureSensors, \
-    PcieUtilCounter, NVMLErrorNotSupported
+from pynvml3 import (
+    Device,
+    NVMLLib,
+    SamplingType,
+    NVMLErrorNotFound,
+    ClockType,
+    ClockId,
+    TemperatureSensors,
+    PcieUtilCounter,
+    NVMLErrorNotSupported,
+)
 import pynpoint
 
 SAMPLES_INTERVAL = 1.5
@@ -59,8 +68,7 @@ class ProcessTimer(abc.ABC):
         self.stop()
 
     def start(self) -> None:
-        """This method is called from outside the process to start the timer.
-        """
+        """This method is called from outside the process to start the timer."""
 
         if not self.process.is_alive():
             self._stop.clear()
@@ -133,10 +141,16 @@ class ProcessTimer(abc.ABC):
 
 
 class Collector(ProcessTimer):
-    """This is the base class for a ``ProcessTimer`` based data collector.
-    """
+    """This is the base class for a ``ProcessTimer`` based data collector."""
 
-    def __init__(self, device_id: Optional[int], interval: float, path: Union[str, Path], args=None, kwargs=None):
+    def __init__(
+        self,
+        device_id: Optional[int],
+        interval: float,
+        path: Union[str, Path],
+        args=None,
+        kwargs=None,
+    ):
         """Constructor for the abstract Collector class.
         Args:
             device_id: the index of a GPU device
@@ -177,8 +191,7 @@ class Collector(ProcessTimer):
 
     @abc.abstractmethod
     def _get_save_path(self) -> Path:
-        """Implement this to return a filename to which the data will be written.
-        """
+        """Implement this to return a filename to which the data will be written."""
         pass
 
     @abc.abstractmethod
@@ -227,7 +240,13 @@ class SampleCollector(Collector):
     gpu Device object.
     """
 
-    def __init__(self, sample_type: SamplingType, device_id: int, interval: float, path: Union[str, Path]):
+    def __init__(
+        self,
+        sample_type: SamplingType,
+        device_id: int,
+        interval: float,
+        path: Union[str, Path],
+    ):
         """Creates a new sample collector for the given sample type.
 
         Args:
@@ -304,7 +323,14 @@ class SlowCollector(Collector):
     one value at a time (e.g. ``device.get_power_usage()``).
     """
 
-    def __init__(self, device_id: int, interval: float, path: str, args: Tuple[Event, Queue] = None, kwargs=None):
+    def __init__(
+        self,
+        device_id: int,
+        interval: float,
+        path: str,
+        args: Tuple[Event, Queue] = None,
+        kwargs=None,
+    ):
         """Create a new SlowCollector for the given gpu device.
 
         Args:
@@ -316,20 +342,23 @@ class SlowCollector(Collector):
         """
         super(SlowCollector, self).__init__(device_id, interval, path, args, kwargs)
         self.data_functions = {
-            "timestamp": lambda: str(datetime.now())
-            , "util": lambda: self.device.get_utilization_rates()
-            , "clock-mem": lambda: self.device.get_clock(ClockType.MEM, ClockId.CURRENT)
-            , "clock-gpu": lambda: self.device.get_clock(ClockType.SM, ClockId.CURRENT)
-            , "app-clock-mem": lambda: self.device.get_applications_clock(ClockType.MEM)
-            , "app-clock-gpu": lambda: self.device.get_applications_clock(ClockType.SM)
-            , "enforced-power-limit": lambda: self.device.get_enforced_power_limit()
-            , "total-energy": lambda: self.device.get_total_energy_consumption()
+            "timestamp": lambda: str(datetime.now()),
+            "util": lambda: self.device.get_utilization_rates(),
+            "clock-mem": lambda: self.device.get_clock(ClockType.MEM, ClockId.CURRENT),
+            "clock-gpu": lambda: self.device.get_clock(ClockType.SM, ClockId.CURRENT),
+            "app-clock-mem": lambda: self.device.get_applications_clock(ClockType.MEM),
+            "app-clock-gpu": lambda: self.device.get_applications_clock(ClockType.SM),
+            "enforced-power-limit": lambda: self.device.get_enforced_power_limit(),
+            "total-energy": lambda: self.device.get_total_energy_consumption()
             # int representation to save on storage size
-            , "power-state": lambda: self.device.get_power_state().value
-            , "power": lambda: self.device.get_power_usage()
-            , "tmp": lambda: self.device.get_temperature(TemperatureSensors.TEMPERATURE_GPU)
-            , "pci-tx": lambda: self.device.get_pcie_throughput(PcieUtilCounter.TX_BYTES)
-            , "pci-rx": lambda: self.device.get_pcie_throughput(PcieUtilCounter.RX_BYTES)
+            ,
+            "power-state": lambda: self.device.get_power_state().value,
+            "power": lambda: self.device.get_power_usage(),
+            "tmp": lambda: self.device.get_temperature(
+                TemperatureSensors.TEMPERATURE_GPU
+            ),
+            "pci-tx": lambda: self.device.get_pcie_throughput(PcieUtilCounter.TX_BYTES),
+            "pci-rx": lambda: self.device.get_pcie_throughput(PcieUtilCounter.RX_BYTES),
         }
 
     def _get_save_path(self) -> Path:
@@ -401,8 +430,11 @@ class SlowCollector(Collector):
 
         """
         self.device = device
-        self.data_functions = {key: value for key, value in
-                               self.data_functions.items() if self._is_supported(key, value)}
+        self.data_functions = {
+            key: value
+            for key, value in self.data_functions.items()
+            if self._is_supported(key, value)
+        }
         self.device = None
         return bool(self.data_functions)
 
@@ -420,10 +452,7 @@ class ExternalCollector(Collector):
             path: the parent directory in which the data will be saved
         """
         super().__init__(None, interval=interval, path=path)
-        self.serial_devices = [
-            "/dev/ttyACM0",
-            "/dev/ttyACM1"
-        ]
+        self.serial_devices = ["/dev/ttyACM0", "/dev/ttyACM1"]
         self.handles = []
 
     def test(self, device: Optional[Device] = None) -> bool:
@@ -520,10 +549,9 @@ class CollectorManager:
                 if col.test(device):
                     self.collectors.append(col)
 
-    def add_by_sampling_type(self,
-                             sampling_type: Union[SamplingType,
-                                                  List[SamplingType]]
-                             , interval):
+    def add_by_sampling_type(
+        self, sampling_type: Union[SamplingType, List[SamplingType]], interval
+    ):
         """Create and register a new SampleCollector for each provided sampling
         type.
         Args:
@@ -533,7 +561,10 @@ class CollectorManager:
         if isinstance(sampling_type, SamplingType):
             sampling_type = [sampling_type]
 
-        collectors = [SampleCollector(st, self.device_id, interval, self.data_path) for st in sampling_type]
+        collectors = [
+            SampleCollector(st, self.device_id, interval, self.data_path)
+            for st in sampling_type
+        ]
         self.add(collectors)
 
     def start(self) -> None:
@@ -547,7 +578,9 @@ class CollectorManager:
             col.stop()
 
 
-def start_collecting(data_root: str, visible_devices: int, data_event: Event, data_queue: Queue) -> None:
+def start_collecting(
+    data_root: str, visible_devices: int, data_event: Event, data_queue: Queue
+) -> None:
     """This is the entrypoint of this module.
     This function sets up a few collectors and a collector manager,
     then starts collecting.
@@ -567,14 +600,18 @@ def start_collecting(data_root: str, visible_devices: int, data_event: Event, da
         SamplingType.MEMORY_UTILIZATION_SAMPLES,
         # SamplingType.MEMORY_CLK_SAMPLES,
         # SamplingType.PROCESSOR_CLK_SAMPLES,
-        SamplingType.TOTAL_POWER_SAMPLES
+        SamplingType.TOTAL_POWER_SAMPLES,
     ]
 
     sampling_manager = CollectorManager(data_root, visible_devices)
-    sampling_manager.add(SlowCollector(visible_devices,
-                                       interval=SLOW_INTERVAL,
-                                       path=data_root,
-                                       args=(data_event, data_queue)))
+    sampling_manager.add(
+        SlowCollector(
+            visible_devices,
+            interval=SLOW_INTERVAL,
+            path=data_root,
+            args=(data_event, data_queue),
+        )
+    )
 
     external_collector = ExternalCollector(interval=EXTERNAL_INTERVAL, path=data_root)
     sampling_manager.add(external_collector)

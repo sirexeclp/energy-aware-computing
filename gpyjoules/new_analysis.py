@@ -18,7 +18,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-def get_energy(power: Union[np.ndarray, Iterable], time: Union[np.ndarray, Iterable]) -> np.ndarray:
+def get_energy(
+    power: Union[np.ndarray, Iterable], time: Union[np.ndarray, Iterable]
+) -> np.ndarray:
     """Use the trapezoidal method to integrate power over time.
 
     Args:
@@ -29,14 +31,17 @@ def get_energy(power: Union[np.ndarray, Iterable], time: Union[np.ndarray, Itera
 
     """
     if len(power) != len(time):
-        raise IndexError(f"Expected power and time to have the same length!"
-                         f"Got len(power) = {len(power)} and len(time) = {len(time)}")
+        raise IndexError(
+            f"Expected power and time to have the same length!"
+            f"Got len(power) = {len(power)} and len(time) = {len(time)}"
+        )
     return integrate.cumtrapz(power, time, initial=0)
 
 
 # class Dimension(NamedTuple):
 #     label: str
 #     unit: Optional[str]
+
 
 def name_dict_from_list(data: List):
     """Create a dictionary from a list,
@@ -86,9 +91,7 @@ label_replacements = name_dict_from_list(dimensions)
 #     "run": Dimension("Limit", None),
 #     "timestamp": Dimension("Time", "s")
 # }
-benchmark_description = {
-    "bert": "BERT Finetuning"
-}
+benchmark_description = {"bert": "BERT Finetuning"}
 
 
 def overlay_plots(plots: List):
@@ -123,7 +126,10 @@ def make_title(plot, benchmark: Union["Benchmark", str]) -> None:
         platform = f" - {benchmark.experiment.loader.clean_name}"
         benchmark = benchmark.name
     x, y, *_ = plot.dimensions()
-    title = f"{y.label} vs. {x.label} ({benchmark_description.get(benchmark, benchmark)})" + platform
+    title = (
+        f"{y.label} vs. {x.label} ({benchmark_description.get(benchmark, benchmark)})"
+        + platform
+    )
 
     plot.opts(title=title)
     return None
@@ -158,7 +164,9 @@ def apply_plot_default_settings(plot):
     """
     replace_dimension_labels(plot)
     # make_title(plot)
-    return plot.opts(aspect=16 / 9, fig_bounds=(0, 0, 2, 2))  # .opts(width=800, height=450)
+    return plot.opts(
+        aspect=16 / 9, fig_bounds=(0, 0, 2, 2)
+    )  # .opts(width=800, height=450)
 
 
 def atoi(text: str) -> Union[int, str]:
@@ -180,7 +188,7 @@ def natural_keys(text: str) -> List[Union[int, str]]:
     http://nedbatchelder.com/blog/200712/human_sorting.html
     (See Toothy's implementation in the comments)
     """
-    return [atoi(c) for c in re.split(r'(\d+)', text)]
+    return [atoi(c) for c in re.split(r"(\d+)", text)]
 
 
 def normalize_timestamp(x: Sequence[pd.Timestamp], start_time: pd.Timestamp):
@@ -195,12 +203,11 @@ def normalize_timestamp(x: Sequence[pd.Timestamp], start_time: pd.Timestamp):
     Returns: a collection of relative timestamps in seconds since `start_time`
 
     """
-    return (x - start_time) / np.timedelta64(1, 's')
+    return (x - start_time) / np.timedelta64(1, "s")
 
 
 def identity_function(x: Any) -> Any:
-    """A simple identity function.
-    """
+    """A simple identity function."""
     return x
 
 
@@ -263,7 +270,7 @@ class LinearFit:
         residuals = y_hat - y
 
         sst = np.sum((y - np.mean(y)) ** 2)
-        ssr = np.sum(residuals ** 2)
+        ssr = np.sum(residuals**2)
         return 1 - (ssr / sst)
 
     def mse(self, test_data: Sequence = None) -> float:
@@ -283,9 +290,13 @@ class LinearFit:
 
         y_hat = self.predict(x)
         residuals = y_hat - y
-        return np.mean(residuals ** 2)
+        return np.mean(residuals**2)
 
-    def plot(self, res: int = 100, x_range: Optional[Tuple[Union[float, int], Union[float, int]]] = None) -> hv.Curve:
+    def plot(
+        self,
+        res: int = 100,
+        x_range: Optional[Tuple[Union[float, int], Union[float, int]]] = None,
+    ) -> hv.Curve:
         """Returns a holoviews curve, to visualize the fitted polynomial.
 
         Args:
@@ -321,7 +332,13 @@ class Measurement:
 
     """
 
-    def __init__(self, path: Union[Path, str], name: str, run: "BenchmarkRun", df: Optional[pd.DataFrame] = None):
+    def __init__(
+        self,
+        path: Union[Path, str],
+        name: str,
+        run: "BenchmarkRun",
+        df: Optional[pd.DataFrame] = None,
+    ):
         """Creates a new measurement object.
 
         Args:
@@ -359,7 +376,9 @@ class Measurement:
     def subtract_baseline(self):
         self["power"] = self["power"] - self.baseline
 
-    def normalize_timestamps(self, start_time: np.datetime64, end_time: np.datetime64) -> None:
+    def normalize_timestamps(
+        self, start_time: np.datetime64, end_time: np.datetime64
+    ) -> None:
         """Normalize the timestamps of the internal dataframe using the `normalize_timestamp` function.
 
         Args:
@@ -371,7 +390,9 @@ class Measurement:
         self.data = self.data.sort_values("timestamp")
         if end_time > self.data.timestamp.iloc[-1]:
             print(end_time, self.data.timestamp.iloc[-1], self.path)
-        self.data = self.data[(self.data.timestamp >= 0) & (self.data.timestamp < end_time)]
+        self.data = self.data[
+            (self.data.timestamp >= 0) & (self.data.timestamp < end_time)
+        ]
         # df = df[df.timestamp >= 0]
 
     def calculate_energy(self) -> None:
@@ -397,7 +418,9 @@ class Measurement:
         Returns: a holoviews plot of the metric with default settings applied
 
         """
-        return apply_plot_default_settings(hv.Curve(self.data.set_index("timestamp")[metric], label=label))
+        return apply_plot_default_settings(
+            hv.Curve(self.data.set_index("timestamp")[metric], label=label)
+        )
 
     def __add__(self, other):
         result = self.data + other.data
@@ -426,7 +449,7 @@ class Measurement:
 
         """
         joined = self.data.join(other.data, lsuffix="_sd")
-        joined = joined.drop(joined.filter(regex='_sd$').columns.tolist(), axis=1)
+        joined = joined.drop(joined.filter(regex="_sd$").columns.tolist(), axis=1)
         joined = joined.dropna()
         joined = Measurement(self.path.parent, "joined", self.run, joined)
         return joined
@@ -450,7 +473,9 @@ class BenchmarkRepetition:
 
     """
 
-    def __init__(self, path: Union[Path, str], run: "BenchmarkRun", benchmark: "Benchmark"):
+    def __init__(
+        self, path: Union[Path, str], run: "BenchmarkRun", benchmark: "Benchmark"
+    ):
         """Create a new benchmark run.
 
         Args:
@@ -484,11 +509,11 @@ class BenchmarkRepetition:
 
     def prepare_data(self) -> None:
         """Prepare data of this repetition by:
-            - normalizing timestamps
-            - interpolating
-            - converting power from milliwatt to watt
-            - calculating energy
-            - calculating edp
+        - normalizing timestamps
+        - interpolating
+        - converting power from milliwatt to watt
+        - calculating energy
+        - calculating edp
 
         """
         for key, m in self.measurements.items():
@@ -561,8 +586,7 @@ class BenchmarkRepetition:
         return name_dict_from_list(measurements)
 
     def add_joined_measurements(self) -> None:
-        """Join sd and hd measurements and add them to the list of measurements.
-        """
+        """Join sd and hd measurements and add them to the list of measurements."""
         sd = self.measurements["sd"]
         hd = self.measurements["hd"]
         # joined = sd.r_join(hd)
@@ -627,7 +651,9 @@ class BenchmarkRepetition:
             end_times = [x.data.timestamp.max() for x in self.measurements.values()]
             return min(end_times)
 
-    def plot(self, metric: str, data_source: str = "hd", label: str = None) -> Union[hv.Curve, hv.Overlay]:
+    def plot(
+        self, metric: str, data_source: str = "hd", label: str = None
+    ) -> Union[hv.Curve, hv.Overlay]:
         """Plot the selected metric vs. time.
         Args:
             label: optional label for this Curve
@@ -657,7 +683,7 @@ class BenchmarkRepetition:
             hd = pd.DataFrame(self.measurements["hd"].aggregate(func))
             sd = pd.DataFrame(self.measurements["sd"].aggregate(func))
             joined = sd.join(hd, lsuffix="_sd")
-            joined = joined.drop(joined.filter(regex='_sd$').columns.tolist(), axis=1)
+            joined = joined.drop(joined.filter(regex="_sd$").columns.tolist(), axis=1)
             return joined
         else:
             return self.measurements[data_source].aggregate(func)
@@ -715,7 +741,9 @@ class BenchmarkRun:
     def __getitem__(self, index):
         return self.repetitions[index]
 
-    def aggregate(self, data_source: str, agg_rep: str, agg_time: str = "mean") -> "Measurement":
+    def aggregate(
+        self, data_source: str, agg_rep: str, agg_time: str = "mean"
+    ) -> "Measurement":
         """Aggregate data from multiple benchmark repetitions.
 
         Args:
@@ -754,7 +782,9 @@ class BenchmarkRun:
 
         """
         total_times = [x.get_total_values().timestamp for x in self.repetitions]
-        outlier_indices = np.argwhere(np.quantile(total_times, percentile) < total_times)
+        outlier_indices = np.argwhere(
+            np.quantile(total_times, percentile) < total_times
+        )
         for [x] in reversed(outlier_indices):
             self.repetitions.pop(x)
 
@@ -795,8 +825,13 @@ class Benchmark:
         paths.sort(key=natural_keys)
         return dict(map(lambda x: (x.name, x), [BenchmarkRun(x, self) for x in paths]))
 
-    def plot(self, metric: str, data_slice: Union[str, int] = "mean"
-             , data_source: str = "joined", label_pre=""):
+    def plot(
+        self,
+        metric: str,
+        data_slice: Union[str, int] = "mean",
+        data_source: str = "joined",
+        label_pre="",
+    ):
         """Plot the selected metric from the selected repetition (or aggregated)
         from the selected measurement (data_source).
         The different runs will be plotted individually and then overlaid.
@@ -823,11 +858,13 @@ class Benchmark:
         else:
             for key, run in self.runs.items():
                 bench_rep: BenchmarkRepetition = run[data_slice]
-                plot = bench_rep.plot(metric=metric, data_source=data_source, label=label_pre + key)
+                plot = bench_rep.plot(
+                    metric=metric, data_source=data_source, label=label_pre + key
+                )
                 plots.append(plot)
             pass
 
-        plot = overlay_plots(plots).opts(legend_position='bottom_right')
+        plot = overlay_plots(plots).opts(legend_position="bottom_right")
         make_title(plot, self)
         return apply_plot_default_settings(plot)
 
@@ -857,7 +894,9 @@ class Benchmark:
         boxplot = hv.BoxWhisker(df, "run", metric, legend=True)
         return apply_plot_default_settings(boxplot)
 
-    def aggregate(self, data_source: str, agg_rep: str = "mean", agg_time: str = "mean") -> pd.DataFrame:
+    def aggregate(
+        self, data_source: str, agg_rep: str = "mean", agg_time: str = "mean"
+    ) -> pd.DataFrame:
         """Aggregate runs along the repetition axis with func2 and along the
         time axis with func.
 
@@ -904,18 +943,20 @@ class Benchmark:
 
         """
         totals = self.get_total_values(aggregate, data_source).sort_values(x)
-        return apply_plot_default_settings(hv.Curve(totals.set_index(x)[y], hover_cols=["run"]))
+        return apply_plot_default_settings(
+            hv.Curve(totals.set_index(x)[y], hover_cols=["run"])
+        )
 
     def get_original_timestamps(self, data_source: str) -> List[float]:
         """Return the diffs of timestamps (before interpolation)
-            from the specified measurement, collected from all runs
-            in a flat list.
+        from the specified measurement, collected from all runs
+        in a flat list.
 
-            Args:
-                data_source:  selects, which data_source or measurement should be used
+        Args:
+            data_source:  selects, which data_source or measurement should be used
 
-            Returns:
-                a list of float with timestamp diffs
+        Returns:
+            a list of float with timestamp diffs
 
         """
         ts = [x.get_original_timestamps(data_source) for x in self.runs.values()]
@@ -955,7 +996,11 @@ class Experiment:
             a dictionary mapping benchmark names to benchmark objects
 
         """
-        benchmarks = [Benchmark(x, self) for x in self.path.glob("*") if not x.name.startswith("_")]
+        benchmarks = [
+            Benchmark(x, self)
+            for x in self.path.glob("*")
+            if not x.name.startswith("_")
+        ]
         return name_dict_from_list(benchmarks)
 
     def load_baseline(self):
@@ -1021,11 +1066,20 @@ class DataLoader:
 
         """
         experiment_paths = list(self.data_root.glob("*"))
-        experiments = [Experiment(path, self) for path in experiment_paths if not path.name.startswith("_")]
+        experiments = [
+            Experiment(path, self)
+            for path in experiment_paths
+            if not path.name.startswith("_")
+        ]
         return name_dict_from_list(experiments)
 
-    def plot(self, benchmark: str, metric: str
-             , data_slice: str = "mean", data_source: str = "hd"):
+    def plot(
+        self,
+        benchmark: str,
+        metric: str,
+        data_slice: str = "mean",
+        data_source: str = "hd",
+    ):
         """Plot the selected metric for a benchmark over all
         experiments.
 
@@ -1042,11 +1096,19 @@ class DataLoader:
             an hv overlay or something like that
 
         """
-        benchmarks: List[Benchmark] = [x.benchmarks[benchmark] for x in self.experiments.values()]
+        benchmarks: List[Benchmark] = [
+            x.benchmarks[benchmark] for x in self.experiments.values()
+        ]
         plots = [b.plot(metric, data_slice, data_source) for b in benchmarks]
         return apply_plot_default_settings(overlay_plots(plots))
 
-    def boxplot(self, benchmark: str, metric: str, data_slice: str = "mean", data_source: str = "joined"):
+    def boxplot(
+        self,
+        benchmark: str,
+        metric: str,
+        data_slice: str = "mean",
+        data_source: str = "joined",
+    ):
         """Create a boxplot of the selected metric for a given benchmark over
         all experiments.
 
@@ -1067,7 +1129,13 @@ class DataLoader:
         plots = [b.boxplot(metric) for b in benchmarks]
         return apply_plot_default_settings(overlay_plots(plots))
 
-    def aggregate(self, benchmark: str, data_source: str = "hd", agg_time: str = "mean", agg_rep: str = "mean"):
+    def aggregate(
+        self,
+        benchmark: str,
+        data_source: str = "hd",
+        agg_time: str = "mean",
+        agg_rep: str = "mean",
+    ):
         """Aggregate runs of a specified benchmark from all experiments
         along the repetition axis with func2 and along the
         time axis with func.
@@ -1090,10 +1158,15 @@ class DataLoader:
 
         """
         benchmarks = [x.benchmarks[benchmark] for x in self.experiments.values()]
-        aggregates = [x.aggregate(data_source=data_source, agg_time=agg_time, agg_rep=agg_rep) for x in benchmarks]
+        aggregates = [
+            x.aggregate(data_source=data_source, agg_time=agg_time, agg_rep=agg_rep)
+            for x in benchmarks
+        ]
         return pd.concat(aggregates)
 
-    def plot_totals(self, benchmark: str, x: str, y: str, aggregate="mean", data_source="joined"):
+    def plot_totals(
+        self, benchmark: str, x: str, y: str, aggregate="mean", data_source="joined"
+    ):
         """Plot total values for the selected benchmark from all experiments.
 
         Args:
@@ -1145,9 +1218,14 @@ class DataLoader:
         plt.title(f"Distribution of Sample Frequency ({data_source})")
         plt.xlabel("Sample Frequency (Hz)")
         plt.ylabel("Density")
-        return np.mean(freq), np.std(freq), np.quantile(freq, 0.05), np.quantile(freq, 0.25), np.quantile(freq,
-                                                                                                          0.5), np.quantile(
-            freq, 0.75)
+        return (
+            np.mean(freq),
+            np.std(freq),
+            np.quantile(freq, 0.05),
+            np.quantile(freq, 0.25),
+            np.quantile(freq, 0.5),
+            np.quantile(freq, 0.75),
+        )
 
     def __str__(self):
         return f"DataLoader({list(self.experiments.keys())})"
@@ -1156,7 +1234,7 @@ class DataLoader:
         return self.__str__()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     data_root = Path("data")
     data_sets = ["k80-3"]  # , "dgx9"]  # , "t4"]
 

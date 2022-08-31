@@ -13,7 +13,7 @@ from typing import List, NamedTuple
 
 # import pint
 # unit = pint.UnitRegistry()
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams["figure.dpi"] = 300
 
 MEGA = 1_000_000
 KILO = 1_000
@@ -36,7 +36,7 @@ def load_data(path):
 
 # %%
 def preprocess_timestamps(timestamps):
-    timestamps['timestamp'] = pd.to_datetime(timestamps['timestamp'])
+    timestamps["timestamp"] = pd.to_datetime(timestamps["timestamp"])
     # return timestamps
 
 
@@ -170,7 +170,9 @@ class TimestampInfo:
     @property
     def time_per_epoch(self):
         epochs = np.array(list(self.iter_epochs()))
-        e_times = np.array(epochs[:, 2] - epochs[:, 1], dtype=np.timedelta64) / np.timedelta64(1, 's')
+        e_times = np.array(
+            epochs[:, 2] - epochs[:, 1], dtype=np.timedelta64
+        ) / np.timedelta64(1, "s")
         return e_times
 
     @property
@@ -240,12 +242,12 @@ class PowerData:
 
 def calculate_energy(power, timestamps):
     """Calculate the integral of power [W] over time [DateTime] (energy [J]) using a 3point difference for the timestamps
-        Power should be in Watts
-        returns Energy in Joule
+    Power should be in Watts
+    returns Energy in Joule
     """
     power = np.array(power)
     timestamps = np.array(timestamps)
-    time_diff = diff3(timestamps) / np.timedelta64(1, 's')
+    time_diff = diff3(timestamps) / np.timedelta64(1, "s")
     return power.T @ time_diff
 
 
@@ -262,7 +264,9 @@ def calculate_total_energy(power_data, devices, start=None, end=None):
     end = power_data.timestamps.iloc[-1].timestamp if end is None else end
 
     data_slice = power_data.power_gpu[
-        (power_data.power_gpu.timestamp >= start) & (power_data.power_gpu.timestamp <= end)]
+        (power_data.power_gpu.timestamp >= start)
+        & (power_data.power_gpu.timestamp <= end)
+    ]
     # todo get timestamp for actual experiment start without baseline
     total_energy = 0
     for dev in devices:
@@ -290,8 +294,8 @@ def pad_n_mask(values):
         padded = np.zeros(max_len)
         mask = np.ones(max_len)
 
-        padded[:len(i)] = i
-        mask[:len(i)] = 0
+        padded[: len(i)] = i
+        mask[: len(i)] = 0
 
         tmp = np.ma.array(padded, mask=mask)
         result_padded.append(tmp)
@@ -303,16 +307,18 @@ def plot_mean_std(x, Y, **kwargs):
     mean = Y.mean(axis=0)
     std = Y.std(axis=0)
     import scipy.stats as st
+
     # a = 1.0 * np.array(data)
     # n = len(a)
     confidence = 0.95
-    h = std * st.t.ppf((1 + confidence) / 2., Y.shape[1] - 1)
+    h = std * st.t.ppf((1 + confidence) / 2.0, Y.shape[1] - 1)
 
     plt.plot(x, mean, **kwargs)
     kwargs["label"] = None
     # sns.lineplot(x="x", y="y", data=df)
-    plt.fill_between(x, mean - h, mean + h,
-                     alpha=0.1, linewidth=3, antialiased=True, **kwargs)
+    plt.fill_between(
+        x, mean - h, mean + h, alpha=0.1, linewidth=3, antialiased=True, **kwargs
+    )
 
 
 def timestamp2second(ts):
@@ -324,7 +330,9 @@ def calculate_total_cumulative_energy(power_data, devices, start=None, end=None)
     end = power_data.iloc[-1].timestamp if end is None else end
 
     data_slice = power_data.power_gpu[
-        (power_data.power_gpu.timestamp >= start) & (power_data.power_gpu.timestamp <= end)]
+        (power_data.power_gpu.timestamp >= start)
+        & (power_data.power_gpu.timestamp <= end)
+    ]
     # todo get timestamp for actual experiment start without baseline
     total_energy = []
     for dev in devices:
@@ -347,7 +355,7 @@ def get_energy_per_epoch(power_data, devices):
 
 
 def predict_energy(power_data, devices, num_epochs, start_epoch=1):
-    """Predict energy using selected measures and data in range of start_epoch to start_epoch + num_epochs. """
+    """Predict energy using selected measures and data in range of start_epoch to start_epoch + num_epochs."""
 
     start = power_data.t_info.get_epoch_begin(start_epoch)
     end = power_data.t_info.get_epoch_end(start_epoch + num_epochs - 1)
@@ -358,12 +366,17 @@ def predict_energy(power_data, devices, num_epochs, start_epoch=1):
     first_epoch_begin = power_data.t_info.get_epoch_begin(0)
     first_epoch_end = power_data.t_info.get_epoch_end(0)
 
-    last_epoch_end = power_data.t_info.get_epoch_end(power_data.t_info.epoch_count() - 1)
+    last_epoch_end = power_data.t_info.get_epoch_end(
+        power_data.t_info.epoch_count() - 1
+    )
 
     energy_warm = calculate_total_energy(power_data, devices, start, end)
-    energy_warmup = calculate_total_energy(power_data, devices, exp_begin, first_epoch_begin) + \
-                    calculate_total_energy(power_data, devices, first_epoch_begin, first_epoch_end)
-    energy_teardown = calculate_total_energy(power_data, devices, last_epoch_end, exp_end)
+    energy_warmup = calculate_total_energy(
+        power_data, devices, exp_begin, first_epoch_begin
+    ) + calculate_total_energy(power_data, devices, first_epoch_begin, first_epoch_end)
+    energy_teardown = calculate_total_energy(
+        power_data, devices, last_epoch_end, exp_end
+    )
 
     energy_per_epoch = energy_warm / num_epochs
     energy_warm = (power_data.t_info.epoch_count() - 1) * energy_per_epoch
@@ -372,17 +385,24 @@ def predict_energy(power_data, devices, num_epochs, start_epoch=1):
     return total_energy
 
 
-def predict_energy_live(power_data: PowerData, devices: List[int],
-                        num_epochs: int, current_epoch: int, start_epoch: int = 1) -> float:
+def predict_energy_live(
+    power_data: PowerData,
+    devices: List[int],
+    num_epochs: int,
+    current_epoch: int,
+    start_epoch: int = 1,
+) -> float:
     """Predict energy using selected measures and data in range of start_epoch to start_epoch + num_epochs.
     :returns total_energy in Joule"""
 
-    epochs_since_start = (current_epoch - start_epoch + 1)
-    warm_epochs = (num_epochs - start_epoch)
+    epochs_since_start = current_epoch - start_epoch + 1
+    warm_epochs = num_epochs - start_epoch
 
     exp_begin = power_data.t_info.train_begin
     first_epoch_end = power_data.epochs[0].end
-    energy_warmup = calculate_total_energy(power_data, devices, exp_begin, first_epoch_end)
+    energy_warmup = calculate_total_energy(
+        power_data, devices, exp_begin, first_epoch_end
+    )
 
     start = power_data.epochs[start_epoch].begin
     end = power_data.epochs[current_epoch].end

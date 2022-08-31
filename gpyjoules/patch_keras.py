@@ -7,13 +7,14 @@ import atexit
 import time
 import os
 import warnings
+
 # with warnings.catch_warnings():
 from typing import Union, Callable
 from multiprocessing import Event, Queue
 
 from gpyjoules.util import *
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -55,11 +56,11 @@ def get_tensorboard_path(data_root: Union[str, Path]) -> Path:
 
 class TimestampLogger:
     """A simple in-memory/csv based logger for timestamp events.
-        The resulting csv file will have the fields:
+    The resulting csv file will have the fields:
 
-        - timestamp: the timestamp in iso format
-        - event: the event name as string
-        - data: the integer index of this event
+    - timestamp: the timestamp in iso format
+    - event: the event name as string
+    - data: the integer index of this event
 
     """
 
@@ -82,11 +83,7 @@ class TimestampLogger:
             index: optional index of the event
 
         """
-        tmp = {
-            "timestamp": str(datetime.now()),
-            "event": name,
-            "data": index
-        }
+        tmp = {"timestamp": str(datetime.now()), "event": name, "data": index}
         self.timestamp_log.append(tmp)
 
     def save(self):
@@ -107,9 +104,15 @@ class TimestampLogger:
 class EnergyCallback(keras.callbacks.Callback):
     """Custom Keras Callback to log events, for energy measurements."""
 
-    def __init__(self, enable_energy_prediction: bool, num_epochs: int,
-                 timestamp_logger: TimestampLogger, visible_devices: int,
-                 data_event: Event, data_queue: Queue):
+    def __init__(
+        self,
+        enable_energy_prediction: bool,
+        num_epochs: int,
+        timestamp_logger: TimestampLogger,
+        visible_devices: int,
+        data_event: Event,
+        data_queue: Queue,
+    ):
         """Creates a new EnergyCallback to be used with keras.
 
         Args:
@@ -131,7 +134,9 @@ class EnergyCallback(keras.callbacks.Callback):
         self.total_batch = 0
         self.visible_devices = visible_devices
         self.last_time = time.time()
-        self.summary_writer = tensorflow.summary.create_file_writer("/tmp/energy-board/energy")
+        self.summary_writer = tensorflow.summary.create_file_writer(
+            "/tmp/energy-board/energy"
+        )
         self.data_event = data_event
         self.data_queue = data_queue
 
@@ -247,8 +252,13 @@ class EnergyCallback(keras.callbacks.Callback):
         print(f"\nConsumed Energy: {actual / 1_000:.3f}/{pred / 1_000:.3f}kJ")
 
 
-def patch(data_root: Union[str, Path], enable_energy: bool,
-          visible_devices: int, data_event: Event, data_queue: Queue) -> None:
+def patch(
+    data_root: Union[str, Path],
+    enable_energy: bool,
+    visible_devices: int,
+    data_event: Event,
+    data_queue: Queue,
+) -> None:
     """This is the entrypoint for the `patch_keras` module.
     This function instantiates timestamp logger and callback and
     monkey patches the functions:
@@ -290,19 +300,26 @@ def patch(data_root: Union[str, Path], enable_energy: bool,
             the patched fit funtion
 
         """
+
         def patched_fit(*args, **kwargs):
             num_epochs = kwargs.get("epochs")
-            energy_callback = EnergyCallback(enable_energy, num_epochs
-                                             , logger, visible_devices
-                                             , data_event, data_queue)
+            energy_callback = EnergyCallback(
+                enable_energy,
+                num_epochs,
+                logger,
+                visible_devices,
+                data_event,
+                data_queue,
+            )
 
             # profile the first 10 batches with tensorboard
             # tensorboard_callback = keras.callbacks.TensorBoard(log_dir=get_tensorboard_path(data_root),
             #                                                    profile_batch=(1, 10))
 
-            callbacks = [energy_callback,
-                         # tensorboard_callback
-                         ]
+            callbacks = [
+                energy_callback,
+                # tensorboard_callback
+            ]
 
             kwargs.setdefault("callbacks", list()).extend(callbacks)
             if not enable_energy:

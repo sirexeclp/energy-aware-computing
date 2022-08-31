@@ -10,7 +10,7 @@ import pint
 
 ureg = pint.UnitRegistry()
 
-Utilization = namedtuple('Utilization', ['gpu', 'mem'])
+Utilization = namedtuple("Utilization", ["gpu", "mem"])
 SampleData = namedtuple("SampleData", ["timestamp", "data"])
 
 
@@ -51,7 +51,7 @@ class ValueType(Enum):
             ValueType.DOUBLE: sample_value.dVal,
             ValueType.U_INT: sample_value.uiVal,
             ValueType.U_LONG: sample_value.ulVal,
-            ValueType.U_LONG_LONG: sample_value.ullVal
+            ValueType.U_LONG_LONG: sample_value.ullVal,
         }
         return mapping[self]
 
@@ -70,7 +70,9 @@ class GPU:
             self.check_persistence_mode()
 
         try:
-            self.power_limit_constraints = nvml.nvmlDeviceGetPowerManagementLimitConstraints(self.handle)
+            self.power_limit_constraints = (
+                nvml.nvmlDeviceGetPowerManagementLimitConstraints(self.handle)
+            )
         except nvml.NVMLError_NotSupported:
             self.power_limit_constraints = None
 
@@ -116,7 +118,9 @@ class GPU:
         """
         last_timestamp = self.last_sample_timestamps.get(sample_type, 0)
 
-        sample_value_type, buffer = nvml.nvmlDeviceGetSamples(self.handle, sample_type.value, last_timestamp)
+        sample_value_type, buffer = nvml.nvmlDeviceGetSamples(
+            self.handle, sample_type.value, last_timestamp
+        )
         sample_value_type = ValueType(sample_value_type)
 
         self.last_sample_timestamps[sample_type] = buffer[-1].timeStamp
@@ -147,7 +151,10 @@ class GPU:
         :return: the clock speed in MHz
         :rtype: int
         """
-        return nvml.nvmlDeviceGetClockInfo(self.handle, nvml.NVML_CLOCK_MEM) * ureg.megaHertz
+        return (
+            nvml.nvmlDeviceGetClockInfo(self.handle, nvml.NVML_CLOCK_MEM)
+            * ureg.megaHertz
+        )
 
     def get_memory_clock_limit(self):
         """
@@ -157,7 +164,10 @@ class GPU:
         :return: the clock speed in MHz
         :rtype: int
         """
-        return nvml.nvmlDeviceGetApplicationsClock(self.handle, nvml.NVML_CLOCK_MEM) * ureg.megaHertz
+        return (
+            nvml.nvmlDeviceGetApplicationsClock(self.handle, nvml.NVML_CLOCK_MEM)
+            * ureg.megaHertz
+        )
 
     def get_max_memory_clock(self):
         """
@@ -184,7 +194,10 @@ class GPU:
         :return: the clock speed in MHz
         :rtype: int
         """
-        return nvml.nvmlDeviceGetClockInfo(self.handle, nvml.NVML_CLOCK_SM) * ureg.megaHertz
+        return (
+            nvml.nvmlDeviceGetClockInfo(self.handle, nvml.NVML_CLOCK_SM)
+            * ureg.megaHertz
+        )
 
     def get_sm_clock_limit(self):
         """
@@ -194,7 +207,10 @@ class GPU:
         :return: the clock speed in MHz
         :rtype: int
         """
-        return nvml.nvmlDeviceGetApplicationsClock(self.handle, nvml.NVML_CLOCK_SM) * ureg.megaHertz
+        return (
+            nvml.nvmlDeviceGetApplicationsClock(self.handle, nvml.NVML_CLOCK_SM)
+            * ureg.megaHertz
+        )
 
     def get_performance_state(self):
         """
@@ -233,7 +249,10 @@ class GPU:
         :return: temperature in °C
         :rtype: int
         """
-        return nvml.nvmlDeviceGetTemperature(self.handle, nvml.NVML_TEMPERATURE_GPU) * ureg.degC
+        return (
+            nvml.nvmlDeviceGetTemperature(self.handle, nvml.NVML_TEMPERATURE_GPU)
+            * ureg.degC
+        )
 
     def get_temperature_threshold(self, threshold_type: TemperatureThresholdType):
         """
@@ -243,7 +262,10 @@ class GPU:
         :return: temperature threshold in °C
         :rtype: int
         """
-        return nvml.nvmlDeviceGetTemperatureThreshold(self.handle, threshold_type.value) * ureg.degC
+        return (
+            nvml.nvmlDeviceGetTemperatureThreshold(self.handle, threshold_type.value)
+            * ureg.degC
+        )
 
     def get_pci_tx(self):
         """
@@ -262,8 +284,11 @@ class GPU:
 
         :returns int
         """
-        return nvml.nvmlDeviceGetPcieThroughput(self.handle
-                                                , nvml.NVML_PCIE_UTIL_TX_BYTES) * ureg.byte / (20 * ureg.milliseconds)
+        return (
+            nvml.nvmlDeviceGetPcieThroughput(self.handle, nvml.NVML_PCIE_UTIL_TX_BYTES)
+            * ureg.byte
+            / (20 * ureg.milliseconds)
+        )
 
     def get_pci_rx(self):
         """
@@ -277,8 +302,11 @@ class GPU:
         :return:
         :rtype:
         """
-        return nvml.nvmlDeviceGetPcieThroughput(self.handle
-                                                , nvml.NVML_PCIE_UTIL_RX_BYTES) * ureg.byte / (20 * ureg.milliseconds)
+        return (
+            nvml.nvmlDeviceGetPcieThroughput(self.handle, nvml.NVML_PCIE_UTIL_RX_BYTES)
+            * ureg.byte
+            / (20 * ureg.milliseconds)
+        )
 
     def get_power_limit_constraints(self) -> Tuple[int, int]:
         """
@@ -326,11 +354,13 @@ class GPU:
         if limit < self.power_limit_constraints[0]:
             raise ValueError(
                 f"Given power limit is to low. Limit must be in range of {self.power_limit_constraints} (inclusive), "
-                f"but was {limit}!")
+                f"but was {limit}!"
+            )
         if limit > self.power_limit_constraints[1]:
             raise ValueError(
                 f"Given power limit is to high. Limit must be in range of {self.power_limit_constraints} (inclusive), "
-                f"but was {limit}!")
+                f"but was {limit}!"
+            )
 
         nvml.nvmlDeviceSetPowerManagementLimit(self.handle, limit)
         return self.get_current_power_limit() == limit
@@ -360,7 +390,9 @@ class GPU:
         supported_clocks = {}
         mem_clocks = nvml.nvmlDeviceGetSupportedMemoryClocks(self.handle)
         for mem_c in mem_clocks:
-            graphic_clocks = nvml.nvmlDeviceGetSupportedGraphicsClocks(self.handle, mem_c)
+            graphic_clocks = nvml.nvmlDeviceGetSupportedGraphicsClocks(
+                self.handle, mem_c
+            )
             supported_clocks[mem_c] = graphic_clocks
         return supported_clocks
 
@@ -374,7 +406,9 @@ class GPU:
         :return: default clock in MHz
         :rtype: int
         """
-        return nvml.nvmlDeviceGetDefaultApplicationsClock(self.handle, nvml.NVML_CLOCK_MEM)
+        return nvml.nvmlDeviceGetDefaultApplicationsClock(
+            self.handle, nvml.NVML_CLOCK_MEM
+        )
 
     def get_default_sm_clock(self) -> int:
         """
@@ -386,7 +420,9 @@ class GPU:
         :return: default clock in MHz
         :rtype: int
         """
-        return nvml.nvmlDeviceGetDefaultApplicationsClock(self.handle, nvml.NVML_CLOCK_SM)
+        return nvml.nvmlDeviceGetDefaultApplicationsClock(
+            self.handle, nvml.NVML_CLOCK_SM
+        )
 
     def reset_clocks(self):
         """
@@ -401,8 +437,10 @@ class GPU:
         :rtype: bool
         """
         nvml.nvmlDeviceResetApplicationsClocks(self.handle)
-        return self.get_sm_clock_limit() == self.get_default_sm_clock() and \
-               self.get_memory_clock_limit() == self.get_default_memory_clock()
+        return (
+            self.get_sm_clock_limit() == self.get_default_sm_clock()
+            and self.get_memory_clock_limit() == self.get_default_memory_clock()
+        )
 
     def set_clocks(self, memory_clock, graphic_clock):
         """
@@ -434,17 +472,30 @@ class GPU:
         :rtype: bool
         """
         supported_graphic_clocks = self.supported_clocks.get(memory_clock, None)
-        if supported_graphic_clocks is None or graphic_clock not in supported_graphic_clocks:
-            raise ValueError(f"Given Clock configuration is not supported! mem:{memory_clock} gpu: {graphic_clock}")
+        if (
+            supported_graphic_clocks is None
+            or graphic_clock not in supported_graphic_clocks
+        ):
+            raise ValueError(
+                f"Given Clock configuration is not supported! mem:{memory_clock} gpu: {graphic_clock}"
+            )
 
         nvml.nvmlDeviceSetApplicationsClocks(self.handle, memory_clock, graphic_clock)
-        return memory_clock == self.get_memory_clock_limit() and graphic_clock == self.get_sm_clock_limit()
+        return (
+            memory_clock == self.get_memory_clock_limit()
+            and graphic_clock == self.get_sm_clock_limit()
+        )
 
     def get_nv_counter(self, link: int, capability: NvLinkCapability):
         _nvmlNvLinkCapability_t = nvml.c_uint
         cap_result = nvml.c_uint()
         fn = nvml._nvmlGetFunctionPointer("nvmlDeviceGetNvLinkCapability")
-        ret = fn(self.handle, nvml.c_uint(link), _nvmlNvLinkCapability_t(capability.value), nvml.byref(cap_result))
+        ret = fn(
+            self.handle,
+            nvml.c_uint(link),
+            _nvmlNvLinkCapability_t(capability.value),
+            nvml.byref(cap_result),
+        )
         nvml._nvmlCheckReturn(ret)
         return cap_result.value
 

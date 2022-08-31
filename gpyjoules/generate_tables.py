@@ -21,12 +21,16 @@ def df_argmin(df, col):
     return df[df[col] == df[col].min()]
 
 
-def aggregate_all(loaders: List[DataLoader], agg_rep: Optional[str] = "mean", data_source="hd"):
+def aggregate_all(
+    loaders: List[DataLoader], agg_rep: Optional[str] = "mean", data_source="hd"
+):
     data = []
     for loader in loaders:
         for experiment in loader.experiments.values():
             for benchmark in experiment.benchmarks.values():
-                tmp = benchmark.aggregate(data_source=data_source, agg_time="mean", agg_rep=agg_rep)
+                tmp = benchmark.aggregate(
+                    data_source=data_source, agg_time="mean", agg_rep=agg_rep
+                )
                 tmp["platform"] = loader.name
                 tmp["exp"] = experiment.name
                 tmp["benchmark"] = benchmark.name
@@ -77,18 +81,14 @@ def generate_column_format(table: pd.DataFrame, highlight_index: int):
 
 
 def get_long_platform_name(name):
-    long_platform = {
-        "dgx": "V100",
-        "k80": "K80",
-        "t4": "T4"
-    }
+    long_platform = {"dgx": "V100", "k80": "K80", "t4": "T4"}
     for key, value in long_platform.items():
         if key in name:
             return value
 
 
 def get_doc_with_preamble():
-    doc = Document('basic')
+    doc = Document("basic")
     doc.packages.append(NoEscape(r"\usepackage{siunitx}"))
     doc.packages.append(NoEscape(r"\usepackage{colortbl}"))
     doc.packages.append(NoEscape(r"\usepackage[dvipsnames,usenames]{xcolor}"))
@@ -102,7 +102,7 @@ def table_here(text):
     return f"{first_line}[h]\n{rest}"
 
 
-def highlight_baseline(text: str, baseline:str):
+def highlight_baseline(text: str, baseline: str):
     highlight = r"\rowcolor{lightblue}"
     search_str = f"\\SI{{{baseline}}}{{W}}"
     result = []
@@ -116,11 +116,7 @@ def highlight_baseline(text: str, baseline:str):
 def generate_min_table(data, optimization_targets):
     # generate min tables
 
-    long_targets = {
-        "energy": "energy"
-        , "timestamp": "time"
-        , "edp": "EDP"
-    }
+    long_targets = {"energy": "energy", "timestamp": "time", "edp": "EDP"}
 
     signs = {
         "timestamp": "t",
@@ -149,53 +145,58 @@ def generate_min_table(data, optimization_targets):
             for experiment, experiment_data in platform_data.groupby("exp"):
                 result.append("")
 
-                min_runs = (experiment_data.groupby(["benchmark", "run"]).mean()
-                            .reset_index(level="benchmark")
-                            .groupby("benchmark").apply(lambda x: df_argmin(x, target))
-                            )
+                min_runs = (
+                    experiment_data.groupby(["benchmark", "run"])
+                    .mean()
+                    .reset_index(level="benchmark")
+                    .groupby("benchmark")
+                    .apply(lambda x: df_argmin(x, target))
+                )
 
                 means = min_runs.reset_index(level="run")
 
-                stds = (experiment_data.groupby(["benchmark", "run"]).std()
-                        .loc[min_runs.index].reset_index(level="run")
-                        )
+                stds = (
+                    experiment_data.groupby(["benchmark", "run"])
+                    .std()
+                    .loc[min_runs.index]
+                    .reset_index(level="run")
+                )
 
                 for column in optimization_targets:
-                    means[column] = "$" + \
-                                    means[column].map(lambda x: "{:.3f}".format(x)) + \
-                                    " \\pm " + \
-                                    stds[column].map(lambda x: "{:.3f}".format(x)) + \
-                                    "$"
+                    means[column] = (
+                        "$"
+                        + means[column].map(lambda x: "{:.3f}".format(x))
+                        + " \\pm "
+                        + stds[column].map(lambda x: "{:.3f}".format(x))
+                        + "$"
+                    )
 
                 means = means[projected_columns]
 
                 formatted_table = make_table_great_again(means, target, signs, units)
 
-
                 table_name = f"min-{long_targets[target]}-{get_long_platform_name(platform)}-{experiment}"
-                latex_table_str = formatted_table \
-                    .to_latex(float_format="%.3f",
-                              escape=False,
-                              column_format=generate_column_format(formatted_table, t_index + 1),
-                              label=f"tab:{table_name}",
-                              caption=f"Optimal (minimizing) power limit with respect to {long_targets[target]}. Measured on {get_long_platform_name(platform)}."
-                              )
+                latex_table_str = formatted_table.to_latex(
+                    float_format="%.3f",
+                    escape=False,
+                    column_format=generate_column_format(formatted_table, t_index + 1),
+                    label=f"tab:{table_name}",
+                    caption=f"Optimal (minimizing) power limit with respect to {long_targets[target]}. Measured on {get_long_platform_name(platform)}.",
+                )
                 doc.append(NoEscape(latex_table_str))
                 result.append(latex_table_str)
-                table_path = (Path("../master-thesis/tables") / table_name).with_suffix(".tex")
+                table_path = (Path("../master-thesis/tables") / table_name).with_suffix(
+                    ".tex"
+                )
                 table_path.write_text(table_here(latex_table_str))
 
-    doc.generate_pdf('min_tables', clean_tex=False)
+    doc.generate_pdf("min_tables", clean_tex=False)
     return "\n".join(result)
 
 
 def generate_dif_table(data, projected_columns):
 
-    baselines = {
-        "V100": "300",
-        "K80": "150",
-        "T4": "70"
-    }
+    baselines = {"V100": "300", "K80": "150", "T4": "70"}
 
     signs = {
         "timestamp": "\\Delta t",
@@ -233,47 +234,52 @@ def generate_dif_table(data, projected_columns):
                 baseline = means[means.index == baseline_pl]
 
                 # divide by baseline and convert to percental change
-                normalized_data = (benchmark_data.divide(baseline.iloc[0], axis=1) - 1) * 100
+                normalized_data = (
+                    benchmark_data.divide(baseline.iloc[0], axis=1) - 1
+                ) * 100
 
                 means_norm = normalized_data.groupby("run").mean()
                 stds_norm = normalized_data.groupby("run").std()
 
                 for column in optimization_targets:
-                    means_norm[column] = "$" + means_norm[column].map(lambda x: "{:.3f}".format(x)) + " \\pm " + \
-                                         stds_norm[column].map(lambda x: "{:.3f}".format(x)) + "$"
+                    means_norm[column] = (
+                        "$"
+                        + means_norm[column].map(lambda x: "{:.3f}".format(x))
+                        + " \\pm "
+                        + stds_norm[column].map(lambda x: "{:.3f}".format(x))
+                        + "$"
+                    )
 
                 table = means_norm[projected_columns]
 
-
                 formatted_table = make_table_great_again(table, None, signs, units)
 
-
-                table_name = f"diff-{benchmark}-{get_long_platform_name(platform)}-{experiment}"
-                latex_table_str = (formatted_table
-                                   .to_latex(float_format="%.3f",
-                                             escape=False,
-                                             column_format="l" + "r" * len(formatted_table.columns),
-                                             label=f"tab:{table_name}",
-                                             caption=f"Relative differences (in \\%) of different power limits for the {benchmark} benchmark compared to the default of \\SI{{{baseline_pl}}}{{W}}.  Measured on {get_long_platform_name(platform)}."
-                                             ))
+                table_name = (
+                    f"diff-{benchmark}-{get_long_platform_name(platform)}-{experiment}"
+                )
+                latex_table_str = formatted_table.to_latex(
+                    float_format="%.3f",
+                    escape=False,
+                    column_format="l" + "r" * len(formatted_table.columns),
+                    label=f"tab:{table_name}",
+                    caption=f"Relative differences (in \\%) of different power limits for the {benchmark} benchmark compared to the default of \\SI{{{baseline_pl}}}{{W}}.  Measured on {get_long_platform_name(platform)}.",
+                )
                 latex_table_str = highlight_baseline(latex_table_str, baseline_pl)
                 doc.append(NoEscape(latex_table_str))
                 print(latex_table_str)
-                table_path = (Path("../master-thesis/tables") / table_name).with_suffix(".tex")
+                table_path = (Path("../master-thesis/tables") / table_name).with_suffix(
+                    ".tex"
+                )
                 table_path.write_text(table_here(latex_table_str))
 
-    doc.generate_pdf('dif_tables', clean_tex=False)
+    doc.generate_pdf("dif_tables", clean_tex=False)
     return "\n".join(result)
 
 
 def generate_corr_table(data):
     # generate min tables
 
-    long_targets = {
-        "energy": "energy"
-        , "timestamp": "time"
-        , "edp": "EDP"
-    }
+    long_targets = {"energy": "energy", "timestamp": "time", "edp": "EDP"}
 
     doc = get_doc_with_preamble()
 
@@ -284,41 +290,50 @@ def generate_corr_table(data):
         result.append("")
         for experiment, experiment_data in platform_data.groupby("exp"):
 
-            correlations = (experiment_data.groupby(["benchmark", "run"]).mean()
-                            .reset_index(level="benchmark")
-                            .groupby("benchmark")[["power", "clock-gpu"]]
-                            .corr()["power"].iloc[1::2].reset_index(level=1)
-                            .drop(columns="level_1").rename(columns={"power":"r"})
-                            )
+            correlations = (
+                experiment_data.groupby(["benchmark", "run"])
+                .mean()
+                .reset_index(level="benchmark")
+                .groupby("benchmark")[["power", "clock-gpu"]]
+                .corr()["power"]
+                .iloc[1::2]
+                .reset_index(level=1)
+                .drop(columns="level_1")
+                .rename(columns={"power": "r"})
+            )
 
-            correlations["r"] = "$" + \
-                                correlations["r"].map(lambda x: "{:.3f}".format(x)) +\
-                                "$"
-            
-            correlations = correlations.rename(columns={"r": f"$corr(\\bar P, \\bar f)_{{ \\mathrm{{ {get_long_platform_name(platform)} }} }}$"})
+            correlations["r"] = (
+                "$" + correlations["r"].map(lambda x: "{:.3f}".format(x)) + "$"
+            )
+
+            correlations = correlations.rename(
+                columns={
+                    "r": f"$corr(\\bar P, \\bar f)_{{ \\mathrm{{ {get_long_platform_name(platform)} }} }}$"
+                }
+            )
             tables.append(correlations)
 
     correlations = pd.concat(tables, axis=1)
 
     table_name = f"corr-power-clock-gpu"
-    latex_table_str = correlations \
-        .to_latex(float_format="%.3f",
-                  escape=False,
-                  column_format=generate_column_format(correlations, None),
-                  label=f"tab:{table_name}",
-                  caption=f"Correlation coefficients of power and gpu clock (averaged over time and runs)."
-                  )
+    latex_table_str = correlations.to_latex(
+        float_format="%.3f",
+        escape=False,
+        column_format=generate_column_format(correlations, None),
+        label=f"tab:{table_name}",
+        caption=f"Correlation coefficients of power and gpu clock (averaged over time and runs).",
+    )
 
     doc.append(NoEscape(latex_table_str))
     result.append(latex_table_str)
     table_path = (Path("../master-thesis/tables") / table_name).with_suffix(".tex")
     table_path.write_text(table_here(latex_table_str))
 
-    doc.generate_pdf('corr_tables', clean_tex=False)
+    doc.generate_pdf("corr_tables", clean_tex=False)
     return "\n".join(result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     hv.extension("bokeh", "matplotlib")
 
     data_root = Path("data")
@@ -335,7 +350,6 @@ if __name__ == '__main__':
     optimization_targets = ["energy", "timestamp", "edp"]
     generate_min_table(all_totals, optimization_targets)
     generate_dif_table(all_totals, optimization_targets)
-
 
     # all_agg = aggregate_all(data_loaders, None, "sd")
     # # select only power limit experiments

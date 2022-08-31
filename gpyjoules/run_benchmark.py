@@ -12,6 +12,7 @@ from .system_info import SystemInfo
 
 EXPERIMENTS_PATH = Path("experiments")
 
+
 def get_hostname() -> str:
     """Return the hostname."""
     hostname = os.environ.get("HOST")
@@ -26,7 +27,7 @@ def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
 
     Args:
         path: a path to an experiment definition yaml-file
-    
+
     Returns:
         the experiment definion as a dict
 
@@ -45,7 +46,7 @@ def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
 
 def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
     """Load the benchmark definition yaml-file from the given path.
-    
+
     Args:
         path: a path to a benchmark definition yaml-file
 
@@ -80,9 +81,18 @@ def watt2milliwatt(value: Union[int, float, None]) -> Union[int, float, None]:
         return value * 1000
 
 
-def run_benchmark(device_index: int, data_path: str, working_directory: str, module: str,
-                  args: List[str], power_limit: Optional[int], clocks: Optional[Tuple[int, int]], repetition: int,
-                  experiment_name: str = None, benchmark_name: str = None) -> None:
+def run_benchmark(
+    device_index: int,
+    data_path: str,
+    working_directory: str,
+    module: str,
+    args: List[str],
+    power_limit: Optional[int],
+    clocks: Optional[Tuple[int, int]],
+    repetition: int,
+    experiment_name: str = None,
+    benchmark_name: str = None,
+) -> None:
     """Run a benchmark once on a given device, with the given constraints, while collecting
     power-data.
 
@@ -121,7 +131,9 @@ def run_benchmark(device_index: int, data_path: str, working_directory: str, mod
         # set constraints
         # reset power-limit to default value, when we are done and check if it was set successfully
         # convert watts to milliwatts
-        limit = PowerLimit(device, watt2milliwatt(power_limit), set_default=True, check=True)
+        limit = PowerLimit(
+            device, watt2milliwatt(power_limit), set_default=True, check=True
+        )
 
         clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
         print(power_limit)
@@ -129,8 +141,19 @@ def run_benchmark(device_index: int, data_path: str, working_directory: str, mod
 
             SystemInfo.gather(device).save(data_path / "system_info.json")
 
-            args = ["python3", "-m", "gpyjoules.g_py_joules", "-d", str(data_path.absolute()),  # "-e",
-                    "-v", str(device_index), "-w", str(working_directory), module, "--"] + args
+            args = [
+                "python3",
+                "-m",
+                "gpyjoules.g_py_joules",
+                "-d",
+                str(data_path.absolute()),  # "-e",
+                "-v",
+                str(device_index),
+                "-w",
+                str(working_directory),
+                module,
+                "--",
+            ] + args
             print(args)
             try:
                 p = subprocess.Popen(args)
@@ -176,15 +199,28 @@ def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
     del config["repeat"]
     config["repetition"] = repetition
     config["benchmark_name"] = benchmark_name
-    config["device_index"] = int(os.environ["NVIDIA_VISIBLE_DEVICES"])  # int(config.pop("devices"))
+    config["device_index"] = int(
+        os.environ["NVIDIA_VISIBLE_DEVICES"]
+    )  # int(config.pop("devices"))
     return config
 
 
 def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length: int):
     data_path = Path(data_path) / "_baseline"
     data_path.mkdir(exist_ok=True, parents=True)
-    args = ["python3", "-m", "gpyjoules.g_py_joules", "-d", str(data_path.absolute()),
-            "-v", str(device_index), "None", "-b", "-bl", str(baseline_length)]
+    args = [
+        "python3",
+        "-m",
+        "gpyjoules.g_py_joules",
+        "-d",
+        str(data_path.absolute()),
+        "-v",
+        str(device_index),
+        "None",
+        "-b",
+        "-bl",
+        str(baseline_length),
+    ]
     print(args)
     try:
         p = subprocess.Popen(args)
@@ -208,8 +244,11 @@ if __name__ == "__main__":
         print(f"Experiment: {experiment['experiment_name']}")
 
         print("Getting baseline measurements ...")
-        get_baseline(Path(experiment["data_path"]) / experiment["experiment_name"],
-                     int(os.environ["NVIDIA_VISIBLE_DEVICES"]), BASELINE_LENGTH)
+        get_baseline(
+            Path(experiment["data_path"]) / experiment["experiment_name"],
+            int(os.environ["NVIDIA_VISIBLE_DEVICES"]),
+            BASELINE_LENGTH,
+        )
         print("Done.")
 
         for bench in experiment["benchmarks"]:
@@ -238,4 +277,3 @@ if __name__ == "__main__":
                     config["power_limit"] = None
                     config["clocks"] = tuple(clock_limits)
                     run_benchmark(**config)
-

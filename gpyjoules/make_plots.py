@@ -12,7 +12,7 @@ from datetime import datetime
 import pint
 
 unit = pint.UnitRegistry()
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams["figure.dpi"] = 300
 # plt.style.use('seaborn')
 from util import *
 
@@ -42,37 +42,47 @@ def load_power_cap_data(data_root, network, epoch_count):
             # print(description)
             data_path = list(run.glob(f"{description}*"))[0]
             power_data = PowerData.load(data_path)
-            assert power_data.t_info.epoch_count == epoch_count, f"Unexpected Number of epochs! Expected: {epoch_count}, but got: {power_data.t_info.epoch_count()} in {data_path}"
+            assert (
+                power_data.t_info.epoch_count == epoch_count
+            ), f"Unexpected Number of epochs! Expected: {epoch_count}, but got: {power_data.t_info.epoch_count()} in {data_path}"
             epoch_energy = get_energy_per_epoch(power_data, devices=devices)
             energy = np.mean(epoch_energy[1:])
 
             epoch_times = power_data.t_info.time_per_epoch
             mean_time = np.mean(epoch_times[1:])
 
-            total_time = power_data.t_info.total_experiment_duration / np.timedelta64(1, "s")
-            total_energy = calculate_total_energy(power_data, devices=devices
-                                                  , start=power_data.t_info.train_begin
-                                                  , end=power_data.t_info.train_end)
+            total_time = power_data.t_info.total_experiment_duration / np.timedelta64(
+                1, "s"
+            )
+            total_energy = calculate_total_energy(
+                power_data,
+                devices=devices,
+                start=power_data.t_info.train_begin,
+                end=power_data.t_info.train_end,
+            )
 
             edp = total_energy * total_time
 
-            cum_energy = calculate_total_cumulative_energy(power_data, devices=devices
-                                                           , start=power_data.t_info.train_begin
-                                                           , end=power_data.t_info.train_end)[0]
+            cum_energy = calculate_total_cumulative_energy(
+                power_data,
+                devices=devices,
+                start=power_data.t_info.train_begin,
+                end=power_data.t_info.train_end,
+            )[0]
 
             tmp = {
-                "power_cap": cap
-                , "energy": energy
-                , "epoch_energy": epoch_energy
-                , "epoch_edp": epoch_energy / epoch_times
-                , "mean_time": mean_time
-                , "total_time": total_time
-                , "epoch_times": epoch_times
-                , "total_energy": total_energy
-                , "cum_energy": cum_energy
-                , "edp": edp
-                , "run": str(run).split("/")[-1].replace("run", "")
-                , "power_data": power_data
+                "power_cap": cap,
+                "energy": energy,
+                "epoch_energy": epoch_energy,
+                "epoch_edp": epoch_energy / epoch_times,
+                "mean_time": mean_time,
+                "total_time": total_time,
+                "epoch_times": epoch_times,
+                "total_energy": total_energy,
+                "cum_energy": cum_energy,
+                "edp": edp,
+                "run": str(run).split("/")[-1].replace("run", ""),
+                "power_data": power_data,
             }
             all_data.append(tmp)
     return all_data
@@ -108,13 +118,17 @@ def plot_power_raw(df, device_idx, net):
         current_ax = ax[index]
         power_data = pl["power_data"]
         device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
-        timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+        timestamps = (
+            np.array(device.timestamp) - np.array(device.timestamp)[0]
+        ) / np.timedelta64(1, "s")
         current_ax.plot(timestamps, device.power)
         current_ax.set_ylim(0, 310)
 
         for i, epoch_begin, _ in power_data.t_info.iter_epochs():
-            epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
-            current_ax.axvline(x=epoch_ts, color='orange', linestyle='--')
+            epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(
+                1, "s"
+            )
+            current_ax.axvline(x=epoch_ts, color="orange", linestyle="--")
     current_ax.set_ylabel("Power [W]")
     current_ax.set_xlabel("Time [s]")
     fig.suptitle(f"[{net}]GPU Power vs. Time  w/ Power Limits [150, 200 ,250, 300]")
@@ -132,21 +146,26 @@ def plot_cum_energy(df, net):
     pl_list = []
     ax = plt.gca()
     for pl_idx, pl in df.groupby("power_cap"):
-        color = next(ax._get_lines.prop_cycler)['color']
+        color = next(ax._get_lines.prop_cycler)["color"]
 
         pl_list.append(pl_idx)
         results = list(pl.groupby("run").apply(lambda x: x.cum_energy))
         x, y = zip(*results)
         # pl[pl.run == 0].cum_energy
         results = pad_n_mask(y)
-        plot_mean_std(np.arange(0, results.shape[1] // 4, 0.25), results, color=color, label=f"{pl_idx}W")
+        plot_mean_std(
+            np.arange(0, results.shape[1] // 4, 0.25),
+            results,
+            color=color,
+            label=f"{pl_idx}W",
+        )
         # x,y = pl[pl.run == "0"].cum_energy.iloc[0]
         # plt.plot(y)
         # print(len(pl[pl.run == "0"].cum_energy.iloc[0]))
 
         max_x = max([x_[-1] for x_ in x])
         max_y = max([y_[-1] for y_ in y]) / KILO
-        plt.axvline(x=max_x, linestyle=':', color=color)
+        plt.axvline(x=max_x, linestyle=":", color=color)
         # plt.axhline(y=max_y,linestyle=':',color=color)
 
         # if pl_idx == 200:
@@ -165,7 +184,7 @@ def plot_cum_energy(df, net):
     plt.xlabel("Time [$s$]")
     plt.ylabel("Energy [$kJ$]")
     plt.show()
-    plt.savefig(fig_root / f"{net}-cum-energy.pdf", bbox_inches='tight')
+    plt.savefig(fig_root / f"{net}-cum-energy.pdf", bbox_inches="tight")
     plt.clf()
 
 
@@ -205,8 +224,9 @@ def epoch_times_boxplot(df, net):
 
     # regression
     x = np.array([x for x in times.keys()])
-    y = np.array([np.array(x).mean() for x in times.values()]) #/ scale
+    y = np.array([np.array(x).mean() for x in times.values()])  # / scale
     from sklearn.linear_model import LinearRegression
+
     reg = np.poly1d(np.polyfit(x, y, 2))
 
     y_hat = reg(x)
@@ -219,10 +239,10 @@ def epoch_times_boxplot(df, net):
     step = 100
     x_hat = np.linspace(min(x), max(x), step)
     y_hat = reg(x_hat)
-    plt.plot([], [], ' ', label=f"$R^2={r2:.3f}$")
+    plt.plot([], [], " ", label=f"$R^2={r2:.3f}$")
     plt.legend()
     # label="second degree least squares polynomial fit"
-    plt.plot(np.linspace(1, len(x), step), y_hat,'--', alpha=0.7)
+    plt.plot(np.linspace(1, len(x), step), y_hat, "--", alpha=0.7)
 
     plt.show()
     plt.savefig(fig_root / f"{net}-epoch-times-boxplot.pdf")
@@ -262,11 +282,11 @@ def total_relative_energy(df, net):
     plt.title(f"[{net}]Energy per Epoch")
     plt.ylabel("Energy [J]")
 
-
     # regression
     x = np.array([x for x in times.keys()])
-    y = np.array([np.array(x).mean() for x in times.values()]) #/ scale
+    y = np.array([np.array(x).mean() for x in times.values()])  # / scale
     from sklearn.linear_model import LinearRegression
+
     reg = np.poly1d(np.polyfit(x, y, 2))
 
     y_hat = reg(x)
@@ -279,14 +299,14 @@ def total_relative_energy(df, net):
     step = 100
     x_hat = np.linspace(min(x), max(x), step)
     y_hat = reg(x_hat)
-    plt.plot([], [], ' ', label=f"$R^2={r2:.3f}$")
+    plt.plot([], [], " ", label=f"$R^2={r2:.3f}$")
     plt.legend()
     # label="second degree least squares polynomial fit"
-    plt.plot(np.linspace(1, len(x), step), y_hat,'--', alpha=0.7)
-
+    plt.plot(np.linspace(1, len(x), step), y_hat, "--", alpha=0.7)
 
     plt.show()
     plt.savefig(fig_root / f"{net}-epoch-energy-boxplot.pdf")
+
 
 # %%
 def epoch_energy_boxplot(df, net):
@@ -302,11 +322,11 @@ def epoch_energy_boxplot(df, net):
     plt.title(f"[{net}]Energy per Epoch")
     plt.ylabel("Energy [J]")
 
-
     # regression
     x = np.array([x for x in times.keys()])
-    y = np.array([np.array(x).mean() for x in times.values()]) #/ scale
+    y = np.array([np.array(x).mean() for x in times.values()])  # / scale
     from sklearn.linear_model import LinearRegression
+
     reg = np.poly1d(np.polyfit(x, y, 2))
 
     y_hat = reg(x)
@@ -319,11 +339,10 @@ def epoch_energy_boxplot(df, net):
     step = 100
     x_hat = np.linspace(min(x), max(x), step)
     y_hat = reg(x_hat)
-    plt.plot([], [], ' ', label=f"$R^2={r2:.3f}$")
+    plt.plot([], [], " ", label=f"$R^2={r2:.3f}$")
     plt.legend()
     # label="second degree least squares polynomial fit"
-    plt.plot(np.linspace(1, len(x), step), y_hat,'--', alpha=0.7)
-
+    plt.plot(np.linspace(1, len(x), step), y_hat, "--", alpha=0.7)
 
     plt.show()
     plt.savefig(fig_root / f"{net}-epoch-energy-boxplot.pdf")
@@ -342,11 +361,11 @@ def epoch_edp_boxplot(df, net):
     plt.title(f"[{net}]EDP per Epoch")
     plt.ylabel("EDP [Js]")
 
-
     # regression
     x = np.array([x for x in times.keys()])
-    y = np.array([np.array(x).mean() for x in times.values()]) #/ scale
+    y = np.array([np.array(x).mean() for x in times.values()])  # / scale
     from sklearn.linear_model import LinearRegression
+
     reg = np.poly1d(np.polyfit(x, y, 2))
 
     y_hat = reg(x)
@@ -359,14 +378,14 @@ def epoch_edp_boxplot(df, net):
     step = 100
     x_hat = np.linspace(min(x), max(x), step)
     y_hat = reg(x_hat)
-    plt.plot([], [], ' ', label=f"$R^2={r2:.3f}$")
+    plt.plot([], [], " ", label=f"$R^2={r2:.3f}$")
     plt.legend()
     # label="second degree least squares polynomial fit"
-    plt.plot(np.linspace(1, len(x), step), y_hat,'--', alpha=0.7)
-
+    plt.plot(np.linspace(1, len(x), step), y_hat, "--", alpha=0.7)
 
     plt.show()
     plt.savefig(fig_root / f"{net}-epoch-edp-boxplot.pdf")
+
 
 # epoch_energy_boxplot(mnist_data_big)
 
@@ -382,6 +401,7 @@ def plot_mean_metric(df, metric, net, scale):
     x = np.array([x for x in energy.keys()])
     y = np.array([np.array(x).mean() for x in energy.values()]) / scale
     from sklearn.linear_model import LinearRegression
+
     reg = np.poly1d(np.polyfit(x, y, 2))
 
     y_hat = reg(x)
@@ -396,10 +416,10 @@ def plot_mean_metric(df, metric, net, scale):
     y_hat = reg(x_hat)
 
     # label="second degree least squares polynomial fit"
-    plt.plot(x_hat, y_hat,'--', alpha=0.7)
+    plt.plot(x_hat, y_hat, "--", alpha=0.7)
     plt.plot(x, y, "x")
     plt.xlabel("Power Limit [W]")
-    plt.plot([], [], ' ', label=f"$R^2={r2:.3f}$")
+    plt.plot([], [], " ", label=f"$R^2={r2:.3f}$")
     plt.legend()
     plt.xticks(power_caps)
 
@@ -442,9 +462,9 @@ def build_empty_plots(count, subplots):
 
 
 # # def make_raw_plot(df, device_idx, net):
-# #     plots = 
+# #     plots =
 # #     for idx, run in df.groupby("run"):
-# #         fig, ax = 
+# #         fig, ax =
 # #         for index, (_,pl) in enumerate(run.groupby("power_cap")):
 # #             current_ax = ax[index]
 # #             power_data = pl.iloc[0]["power_data"]
@@ -469,7 +489,7 @@ def build_empty_plots(count, subplots):
 # #         current_ax.set_ylabel("Power [W]")
 # #         current_ax.set_xlabel("Time [s]")
 # #         fig.suptitle(f"[{net}]GPU Power vs. Time  w/ Power Limits [150, 200 ,250, 300]")
-# #         #plt.tight_layout() 
+# #         #plt.tight_layout()
 # #         plots.append((fig, ax))
 # #         #plt.show()
 # #     #plt.savefig(fig_root/f"{net}-power-raw.pdf")
@@ -485,15 +505,21 @@ def plot_pci_raw(df, device_idx, net):
         for index, (_, pl) in enumerate(run.groupby("power_cap")):
             current_ax = ax[index]
             power_data = pl.iloc[0]["power_data"]
-            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
-            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            device = power_data.power_gpu[
+                power_data.power_gpu["gpu-index"] == device_idx
+            ]
+            timestamps = (
+                np.array(device.timestamp) - np.array(device.timestamp)[0]
+            ) / np.timedelta64(1, "s")
 
             for i, epoch_begin, _ in power_data.t_info.iter_epochs():
-                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
-                current_ax.axvline(x=epoch_ts, color='green', linestyle='--')
+                epoch_ts = (
+                    epoch_begin - np.array(device.timestamp)[0]
+                ) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts, color="green", linestyle="--")
 
-            a, = current_ax.plot(timestamps, device["pci-tx"])
-            b, = current_ax.plot(timestamps, device["pci-rx"])
+            (a,) = current_ax.plot(timestamps, device["pci-tx"])
+            (b,) = current_ax.plot(timestamps, device["pci-rx"])
 
             # current_ax.plot(timestamps, device["clock-sm"])
             # current_ax.plot(timestamps, device.power/250)
@@ -518,12 +544,18 @@ def plot_clock_raw(df, device_idx, net):
         for index, (_, pl) in enumerate(run.groupby("power_cap")):
             current_ax = ax[index]
             power_data = pl.iloc[0]["power_data"]
-            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
-            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            device = power_data.power_gpu[
+                power_data.power_gpu["gpu-index"] == device_idx
+            ]
+            timestamps = (
+                np.array(device.timestamp) - np.array(device.timestamp)[0]
+            ) / np.timedelta64(1, "s")
 
             for i, epoch_begin, _ in power_data.t_info.iter_epochs():
-                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
-                current_ax.axvline(x=epoch_ts, color='green', linestyle='--')
+                epoch_ts = (
+                    epoch_begin - np.array(device.timestamp)[0]
+                ) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts, color="green", linestyle="--")
 
             current_ax.plot(timestamps, device["clock-sm"])
             # current_ax.plot(timestamps, device.power/250)
@@ -547,14 +579,20 @@ def plot_temp_raw(df, device_idx, net):
         for index, (_, pl) in enumerate(run.groupby("power_cap")):
             current_ax = ax[index]
             power_data = pl.iloc[0]["power_data"]
-            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
-            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            device = power_data.power_gpu[
+                power_data.power_gpu["gpu-index"] == device_idx
+            ]
+            timestamps = (
+                np.array(device.timestamp) - np.array(device.timestamp)[0]
+            ) / np.timedelta64(1, "s")
 
             for i, epoch_begin, _ in power_data.t_info.iter_epochs():
-                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
-                current_ax.axvline(x=epoch_ts, color='green', linestyle='--')
+                epoch_ts = (
+                    epoch_begin - np.array(device.timestamp)[0]
+                ) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts, color="green", linestyle="--")
 
-            a, = current_ax.plot(timestamps, device["tmp"])
+            (a,) = current_ax.plot(timestamps, device["tmp"])
             current_ax.set_ylim(35, 60)
 
         current_ax.set_ylabel("Temp [°C]")
@@ -574,19 +612,27 @@ def plot_power_state_raw(df, device_idx, net):
         for index, (_, pl) in enumerate(run.groupby("power_cap")):
             current_ax = ax[index]
             power_data = pl.iloc[0]["power_data"]
-            device = power_data.power_gpu[power_data.power_gpu["gpu-index"] == device_idx]
-            timestamps = (np.array(device.timestamp) - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
+            device = power_data.power_gpu[
+                power_data.power_gpu["gpu-index"] == device_idx
+            ]
+            timestamps = (
+                np.array(device.timestamp) - np.array(device.timestamp)[0]
+            ) / np.timedelta64(1, "s")
 
             for i, epoch_begin, _ in power_data.t_info.iter_epochs():
-                epoch_ts = (epoch_begin - np.array(device.timestamp)[0]) / np.timedelta64(1, "s")
-                current_ax.axvline(x=epoch_ts, color='green', linestyle='--')
+                epoch_ts = (
+                    epoch_begin - np.array(device.timestamp)[0]
+                ) / np.timedelta64(1, "s")
+                current_ax.axvline(x=epoch_ts, color="green", linestyle="--")
 
-            a, = current_ax.plot(timestamps, device["power-state"])
+            (a,) = current_ax.plot(timestamps, device["power-state"])
             # current_ax.set_ylim(35,60)
 
         current_ax.set_ylabel("Power-State")
         current_ax.set_xlabel("Time [s]")
-        fig.suptitle(f"[{net}]GPU Power-State vs. Time  w/ Power Limits [150, 200 ,250, 300]")
+        fig.suptitle(
+            f"[{net}]GPU Power-State vs. Time  w/ Power Limits [150, 200 ,250, 300]"
+        )
         # plt.tight_layout()
         plots.append((fig, ax))
         # plt.show()
@@ -594,18 +640,18 @@ def plot_power_state_raw(df, device_idx, net):
     return plots
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import matplotlib
 
-    mpl.rcParams['figure.dpi'] = 150
-    mpl.rcParams['figure.figsize'] = 16, 9
-    mpl.rcParams['lines.linewidth'] = 3.0
+    mpl.rcParams["figure.dpi"] = 150
+    mpl.rcParams["figure.figsize"] = 16, 9
+    mpl.rcParams["lines.linewidth"] = 3.0
     mpl.rcParams["lines.markeredgewidth"] = 2
-    mpl.rcParams['font.size'] = 16
+    mpl.rcParams["font.size"] = 16
     mpl.rcParams["lines.markersize"] = 10
 
-    plt.style.use('seaborn-colorblind')
-    matplotlib.use('Agg')
+    plt.style.use("seaborn-colorblind")
+    matplotlib.use("Agg")
     fig_root = Path("../report/fig3")
     fig_root.mkdir(parents=True, exist_ok=True)
 
@@ -660,8 +706,9 @@ if __name__ == '__main__':
     # mnist_data_small = pd.DataFrame(mnist_data_small)
     # plot_all(mnist_data_small, "mnist-small")
 
-    mnist_data_big = load_power_cap_data("../data/45d4f713fd015f50e0b6e5afdd75a4bdde066eb2", "mnist-big",
-                                         epoch_count=10)
+    mnist_data_big = load_power_cap_data(
+        "../data/45d4f713fd015f50e0b6e5afdd75a4bdde066eb2", "mnist-big", epoch_count=10
+    )
     mnist_data_big = pd.DataFrame(mnist_data_big)
     plot_all(mnist_data_big, "mnist-big")
 

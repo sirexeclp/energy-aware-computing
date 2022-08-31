@@ -1,0 +1,43 @@
+experiments:
+#  - experiment_name: "power-limit"
+#    repeat: 10
+#    power_limits:
+#      - 100
+#      - 125
+#      - 150
+#      - 175
+#    data_path: /tmp/data-test
+#    benchmarks:
+#      - mnist-cnn
+#      - mnist-dense
+#      - resnet
+#      - bert
+#      - nbody
+  - experiment_name: "clock-limit"
+    host: gpu-sm-01
+    repeat: 10
+    clock_limits:
+#      - [ 2505, 875 ]
+#      - [ 2505, 823 ]
+#      - [ 2505, 810 ]
+#      - [ 2505, 692 ]
+#      - [ 2505, 719 ]
+#      - [ 2505, 679 ]
+#      - [ 2505, 640 ]
+#      - [ 2505, 601 ]
+      - [ 2505, 562 ]
+#      - [ 324, 324 ]
+    data_path: /tmp/data-test
+    benchmarks:
+      - mnist-cnn
+      - mnist-dense
+      - resnet
+      - bert
+      - nbody
+
+# choosen clocks
+# array([ 135.,  290.,  445.,  600.,  755.,  910., 1065., 1220., 1375.,
+#       1530.])
+# nearest possible values
+#1530, 1372, 1222, 1065,  907,  757,  600,  442,  292,  135
+

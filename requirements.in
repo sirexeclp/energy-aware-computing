@@ -18,6 +18,6 @@ scipy
 scikit-learn
 ipython
 
-tensorflow~=2.3.0
+#tensorflow~=2.3.0
 holoviews~=1.13.3
 sphinx

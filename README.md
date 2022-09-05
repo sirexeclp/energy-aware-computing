@@ -43,6 +43,12 @@ You can also launch an interactive session and run your own commands:
 srun -A polze -p sorcery --container-name=cuda11 --container-writable --constraint="GPU_SKU:A100&GPU_MEM:20GB" --container-mount-home --container-workdir=$HOME --gpus=1 --pty bash
 ```
 
+You can put the following alias in your `~/.bashrc`, then use it like `cuda11 --pty bash`.
+
+```bash
+alias cuda11='srun -A polze -p sorcery --container-name=cuda11 --container-writable --constraint="GPU_SKU:A100&GPU_MEM:20GB" --container-mount-home --container-workdir=$PWD --gpus=1 --export CONTAINER_NAME=cuda11'
+```
+
 
 
 

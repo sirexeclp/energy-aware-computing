@@ -6,7 +6,10 @@
 #SBATCH --container-writable
 
 #SBATCH --container-mount-home
-#SBATCH --container-workdir=$HOME
 
+
+cd $SLURM_SUBMIT_DIR
 python3 -m venv venv
+. venv/bin/activate
 pip3 install .
+echo "DONE."

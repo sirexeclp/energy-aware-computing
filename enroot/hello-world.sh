@@ -1,14 +1,10 @@
-#!/bin/bash
-#SBATCH -A polze
-#SBATCH --partition sorcery
-
-#SBATCH --container-name=cuda11
-#SBATCH --container-writable
-
-#SBATCH --container-mount-home
-#SBATCH --container-workdir=$PWD
-
-#SBATCH --gpus=1
-#SBATCH --constraint="GPU_SKU:A100&GPU_MEM:20GB"
-
-python3 -m gpyjoules.info
+srun \
+    -A polze \
+    --partition sorcery \
+    --export=HOME,PWD \
+    --container-name=cuda11 \
+    --container-mount-home \
+    --container-workdir=$PWD \
+    --gpus=1 \
+    --constraint="GPU_SKU:A100&GPU_MEM:20GB" \
+    bash -c ". venv/bin/activate && python3 -m gpyjoules.info"

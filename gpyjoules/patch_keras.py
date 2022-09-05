@@ -4,6 +4,8 @@ to log timestamps of epochs, batches, etc., without the need to
 change the sourcecode of training script.
 """
 import atexit
+from datetime import datetime
+from pathlib import Path
 import time
 import os
 import warnings
@@ -12,7 +14,8 @@ import warnings
 from typing import Union, Callable
 from multiprocessing import Event, Queue
 
-from gpyjoules.util import *
+import pandas as pd
+
 
 warnings.filterwarnings("ignore")
 
@@ -20,6 +23,10 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import tensorflow
 import tensorflow.keras as keras
+
+
+from gpyjoules.util import PowerData, predict_energy_live, calculate_total_energy
+
 
 
 def get_log_path(data_root: Union[str, Path]) -> Path:
@@ -83,13 +90,11 @@ class TimestampLogger:
             index: optional index of the event
 
         """
-        tmp = {"timestamp": str(datetime.now()), "event": name, "data": index}
-        self.timestamp_log.append(tmp)
+        self.timestamp_log.append({"timestamp": str(datetime.now()), "event": name, "data": index})
 
     def save(self):
         """Save the log as a csv file."""
-        df = self.get_df()
-        df.to_csv(self.log_path, index=False)
+        self.get_df().to_csv(self.log_path, index=False)
 
     def get_df(self) -> pd.DataFrame:
         """Create a pandas dataframe from the internal log data.
@@ -126,7 +131,7 @@ class EnergyCallback(keras.callbacks.Callback):
             data_event: event to request data from collection subprocess
             data_queue: queue to receive data from collection subprocess
         """
-        super(EnergyCallback, self).__init__()
+        super().__init__()
         self.timestamp_log = timestamp_logger
         self.enable_energy_prediction = enable_energy_prediction
         self.num_epochs = num_epochs
@@ -169,6 +174,7 @@ class EnergyCallback(keras.callbacks.Callback):
     #     # self.log_event("batch_begin", batch)
     #     pass
 
+    # pylint: disable=unused-argument
     def on_epoch_begin(self, epoch: int, logs=None) -> None:
         """Callback: Log the begin of an epoch.
 
@@ -178,6 +184,7 @@ class EnergyCallback(keras.callbacks.Callback):
         """
         self.log_event("epoch_begin", epoch)
 
+    # pylint: disable=unused-argument
     def on_epoch_end(self, epoch: int, logs=None) -> None:
         """Callback: Log the end of an epoch.
         If energy prediction is enabled, and at least
@@ -192,6 +199,7 @@ class EnergyCallback(keras.callbacks.Callback):
         if epoch > 0 and self.enable_energy_prediction:
             self.predict_energy(epoch)
 
+    # pylint: disable=unused-argument
     def on_train_begin(self, logs=None) -> None:
         """Callback: Log the beginning of training.
 
@@ -199,9 +207,10 @@ class EnergyCallback(keras.callbacks.Callback):
             logs: no idea, what this does
         """
         self.log_event("train_begin")
-        # use this to see if monkeypatching was successfull.
+        # use this to see if monkeypatching was successful.
         print("Timestamp Logger: Train Begin")
 
+    # pylint: disable=unused-argument
     def on_train_end(self, logs=None) -> None:
         """Callback: Log the end of training.
 
@@ -289,7 +298,8 @@ def patch(
     def get_patched_fit(original_function: Callable) -> Callable:
         """Create a patched version of the given function.
 
-            1. create energy callback, with the number of epochs (only known when the patched function is called)
+            1. create energy callback, with the number of epochs
+                (only known when the patched function is called)
             2. add energy callback to the list of callbacks
             3. call end return the result of the original function
 
@@ -313,15 +323,16 @@ def patch(
             )
 
             # profile the first 10 batches with tensorboard
-            # tensorboard_callback = keras.callbacks.TensorBoard(log_dir=get_tensorboard_path(data_root),
-            #                                                    profile_batch=(1, 10))
+            # tensorboard_callback = keras.callbacks.TensorBoard(
+            #       log_dir=get_tensorboard_path(data_root),
+            #       profile_batch=(1, 10))
 
             callbacks = [
                 energy_callback,
                 # tensorboard_callback
             ]
 
-            kwargs.setdefault("callbacks", list()).extend(callbacks)
+            kwargs.setdefault("callbacks", []).extend(callbacks)
             if not enable_energy:
                 kwargs["verbose"] = 2
             return original_function(*args, **kwargs)

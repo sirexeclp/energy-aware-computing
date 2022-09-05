@@ -1,3 +1,4 @@
+"""This module collects system info at the beginning of each experiment."""
 import json
 import platform
 import sys
@@ -6,11 +7,11 @@ from typing import List, Tuple, NamedTuple, Union
 
 import distro
 import pkg_resources
-from pynvml3 import Device, ClockType, ClockId
+from pynvml3 import Device
 
 
 class SystemInfo(NamedTuple):
-    """Dataclass with System Information"""
+    """Dataclass with System Information."""
 
     device_name: str
     cuda_capability: str
@@ -48,9 +49,11 @@ class SystemInfo(NamedTuple):
             device_name=device.get_name(),
             cuda_capability=device.get_cuda_compute_capability(),
             effective_power_limit=device.get_enforced_power_limit(),
-            # applications_clock_target_sm=device.get_clock(ClockType.SM, ClockId.APP_CLOCK_TARGET),
+            # applications_clock_target_sm=device.get_clock(ClockType.SM,
+            #  ClockId.APP_CLOCK_TARGET),
             # max_boost_clock_sm=device.get_clock(ClockType.SM, ClockId.CUSTOMER_BOOST_MAX),
-            # applications_clock_target_mem=device.get_clock(ClockType.MEM, ClockId.APP_CLOCK_TARGET),
+            # applications_clock_target_mem=device.get_clock(
+            # ClockType.MEM, ClockId.APP_CLOCK_TARGET),
             # not supported on dgx1
             # max_boost_clock_mem=device.get_clock(ClockType.MEM, ClockId.CUSTOMER_BOOST_MAX),
             # gather system infos
@@ -74,5 +77,5 @@ class SystemInfo(NamedTuple):
         Args:
             path: the filename, where to save the info to
         """
-        with open(path, "w") as f:
-            json.dump(self._asdict(), f)
+        with open(path, "w", encoding="UTF-8") as file_handle:
+            json.dump(dict(self), file_handle)

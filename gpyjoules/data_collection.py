@@ -89,32 +89,28 @@ class ProcessTimer(abc.ABC):
 
     @abc.abstractmethod
     def _on_start(self) -> None:
-        """This function is executed in the context of the subprocess,
-        when the timer is started.
+        """This function is executed in the context of the subprocess, when the timer is started.
         """
-        pass
 
     @abc.abstractmethod
     def _on_stop(self) -> None:
-        """This function is executed in the context of the subprocess,
-        when the timer is stopped.
+        """This function is executed in the context of the subprocess, when the timer is stopped.
         """
-        pass
 
     @abc.abstractmethod
     def _on_tick(self, args: Tuple, kwargs: Dict) -> None:
-        """This function is executed inside the context of the subprocess,
-        when the timer tics, ie. it is called repeatedly
-        after the specified interval until the timer is stopped.
+        """This function is executed inside the context of the subprocess, when the timer tics.
+
+        It is called repeatedly after the specified interval until the timer is stopped.
 
         Args:
             args: positional arguments
             kwargs: keyword arguments
         """
-        pass
 
     def _run(self) -> None:
         """This is the main loop run inside the subprocess.
+
         This method should not be overridden by subclasses.
         Instead implement ``_on_start``, ``_on_stop`` and ``_on_tick``.
 
@@ -151,6 +147,7 @@ class Collector(ProcessTimer):
         kwargs=None,
     ):
         """Constructor for the abstract Collector class.
+
         Args:
             device_id: the index of a GPU device
             interval: the interval (time) in seconds between collecting data
@@ -160,7 +157,7 @@ class Collector(ProcessTimer):
             kwargs: a dictionary of keyword arguments, which will be passed
                 to the ``_on_tick`` method of the timer on each tick
         """
-        super(Collector, self).__init__(interval, args, kwargs)
+        super().__init__(interval, args, kwargs)
         self.data = []
         self.device_id = device_id
         self.lib = None
@@ -191,7 +188,6 @@ class Collector(ProcessTimer):
     @abc.abstractmethod
     def _get_save_path(self) -> Path:
         """Implement this to return a filename to which the data will be written."""
-        pass
 
     @abc.abstractmethod
     def test(self, device: Device) -> bool:
@@ -208,7 +204,6 @@ class Collector(ProcessTimer):
             True if the desired metric is supported, False otherwise
 
         """
-        pass
 
     def _save(self) -> None:
         """Converts the collected data to a pandas data-frame
@@ -220,9 +215,7 @@ class Collector(ProcessTimer):
             the timer subprocess.
 
         """
-        path = self._get_save_path()
-        df = pd.DataFrame(self.data)
-        df.to_csv(path)
+        pd.DataFrame(self.data).to_csv(self._get_save_path())
 
     def get_len(self) -> int:
         """Returns the length of the internal data array.
@@ -257,7 +250,7 @@ class SampleCollector(Collector):
                     just the interval at which to get them from the buffer.
             path: the parent directory in which the data will be saved
         """
-        super(SampleCollector, self).__init__(device_id, interval, path)
+        super().__init__(device_id, interval, path)
         self.sample_type = sample_type
         self.last_sample_time = 0
 
@@ -317,10 +310,9 @@ class SampleCollector(Collector):
 
 
 class SlowCollector(Collector):
-    """
-    This class implements a collector using the slower
-    query methods, which return only
-    one value at a time (e.g. ``device.get_power_usage()``).
+    """This class implements a collector using the slower query methods.
+
+    They return only one value at a time (e.g. ``device.get_power_usage()``).
     """
 
     def __init__(
@@ -343,17 +335,17 @@ class SlowCollector(Collector):
         super(SlowCollector, self).__init__(device_id, interval, path, args, kwargs)
         self.data_functions = {
             "timestamp": lambda: str(datetime.now()),
-            "util": lambda: self.device.get_utilization_rates(),
+            "util": self.device.get_utilization_rates,
             "clock-mem": lambda: self.device.get_clock(ClockType.MEM, ClockId.CURRENT),
             "clock-gpu": lambda: self.device.get_clock(ClockType.SM, ClockId.CURRENT),
             "app-clock-mem": lambda: self.device.get_applications_clock(ClockType.MEM),
             "app-clock-gpu": lambda: self.device.get_applications_clock(ClockType.SM),
-            "enforced-power-limit": lambda: self.device.get_enforced_power_limit(),
-            "total-energy": lambda: self.device.get_total_energy_consumption()
+            "enforced-power-limit": self.device.get_enforced_power_limit,
+            "total-energy": self.device.get_total_energy_consumption
             # int representation to save on storage size
             ,
             "power-state": lambda: self.device.get_power_state().value,
-            "power": lambda: self.device.get_power_usage(),
+            "power": self.device.get_power_usage,
             "tmp": lambda: self.device.get_temperature(
                 TemperatureSensors.TEMPERATURE_GPU
             ),
@@ -469,14 +461,13 @@ class ExternalCollector(Collector):
             for dev in self.serial_devices:
                 self.handles.append(pynpoint.MCP(dev))
             return True
-        except Exception as e:
+        except Exception:
             print("Initializing external measurements failed!")
             # print(e.message, type(e))
             return False
 
     def _on_start(self):
         """No setup needed."""
-        pass
 
     def _on_stop(self):
         """Just call ``_save`` to save the collected data to disk.
@@ -495,10 +486,8 @@ class ExternalCollector(Collector):
             kwargs: not used
         """
         tmp = {"timestamp": str(datetime.now())}
-        for index, h in enumerate(self.handles):
-            c0, c1 = h.get_power()
-            tmp[f"d{index}c0"] = c0
-            tmp[f"d{index}c1"] = c1
+        for index, handle in enumerate(self.handles):
+            tmp[f"d{index}c0"], tmp[f"d{index}c1"] = handle.get_power()
         self.data.append(tmp)
 
     def _get_save_path(self) -> Path:

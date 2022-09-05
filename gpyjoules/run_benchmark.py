@@ -1,3 +1,4 @@
+"""This module is the main entry point to run the benchmarks."""
 import os
 import random
 import subprocess
@@ -233,7 +234,8 @@ def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length
 
 BASELINE_LENGTH = 60
 
-if __name__ == "__main__":
+def main():
+    """The main function."""
     benchmarks_dir = "benchmarks"
     experiments = load_experiment_definition()
     experiments = experiments.get("experiments", [experiments])
@@ -277,3 +279,7 @@ if __name__ == "__main__":
                     config["power_limit"] = None
                     config["clocks"] = tuple(clock_limits)
                     run_benchmark(**config)
+
+
+if __name__ == "__main__":
+    main()

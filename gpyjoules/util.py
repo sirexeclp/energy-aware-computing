@@ -2,7 +2,6 @@ from collections import namedtuple
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import matplotlib as mpl
 from pathlib import Path
@@ -19,14 +18,16 @@ MEGA = 1_000_000
 KILO = 1_000
 
 
-def diff3(x):
-    d = (x[2:] - x[:-2]) / 2
-    result = np.zeros_like(x, dtype=d.dtype)
-    result[1:-1] = d
+def diff3(array):
+    """Compute the three point difference."""
+    diff = (array[2:] - array[:-2]) / 2
+    result = np.zeros_like(array, dtype=diff.dtype)
+    result[1:-1] = diff
     return result
 
 
 def load_data(path):
+    """Load data from csv files."""
     path = Path(path)
     assert path.exists(), f"Path does not exist! {str(path)}"
     power_data = pd.read_csv(path / "gpu-power.csv")
@@ -42,16 +43,19 @@ def preprocess_timestamps(timestamps):
 
 # %%
 def units_to_si_base(power_data):
+    """Converts milliwatt to watt (in place)."""
     power_data.power = power_data.power / KILO
 
 
 class Epoch(NamedTuple):
+    """Represent one epoch marker."""
     index: int
     begin: datetime
     end: datetime
 
 
 class Batch(NamedTuple):
+    """Represent one batch marker."""
     index: int
     begin: datetime
     end: datetime
@@ -59,6 +63,7 @@ class Batch(NamedTuple):
 
 # %%
 class BatchIterator:
+    """BatchIterator for iterating batches."""
     def __init__(self, t_info):
         self.t_info = t_info
         self.index = 0
@@ -82,6 +87,7 @@ class BatchIterator:
 
 
 class EpochIterator:
+    """EpochIterator for iterating epochs."""
     def __init__(self, t_info, start=0, end=None, step=1):
         self.t_info = t_info
         self.start = start
@@ -119,6 +125,7 @@ class EpochIterator:
 
 
 class EventType(Enum):
+    """Define possible event types."""
     EPOCH_BEGIN = "epoch_begin"
     EPOCH_END = "epoch_end"
 
@@ -241,7 +248,9 @@ class PowerData:
 
 
 def calculate_energy(power, timestamps):
-    """Calculate the integral of power [W] over time [DateTime] (energy [J]) using a 3point difference for the timestamps
+    """Calculate the integral of power [W] over time [DateTime] (energy [J])
+    using a 3point difference for the timestamps
+    
     Power should be in Watts
     returns Energy in Joule
     """
@@ -355,7 +364,8 @@ def get_energy_per_epoch(power_data, devices):
 
 
 def predict_energy(power_data, devices, num_epochs, start_epoch=1):
-    """Predict energy using selected measures and data in range of start_epoch to start_epoch + num_epochs."""
+    """Predict energy using selected measures and data in range of
+    start_epoch to start_epoch + num_epochs."""
 
     start = power_data.t_info.get_epoch_begin(start_epoch)
     end = power_data.t_info.get_epoch_end(start_epoch + num_epochs - 1)
@@ -392,8 +402,11 @@ def predict_energy_live(
     current_epoch: int,
     start_epoch: int = 1,
 ) -> float:
-    """Predict energy using selected measures and data in range of start_epoch to start_epoch + num_epochs.
-    :returns total_energy in Joule"""
+    """Predict energy using selected measures and data in range
+    of start_epoch to start_epoch + num_epochs.
+    
+    :returns total_energy in Joule
+    """
 
     epochs_since_start = current_epoch - start_epoch + 1
     warm_epochs = num_epochs - start_epoch

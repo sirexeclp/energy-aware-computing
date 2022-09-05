@@ -1,3 +1,7 @@
+"""This module prepares a single benchmark run.
+
+It monkeypatches keras and starts data collection processes.
+"""
 import argparse
 import os
 import runpy
@@ -85,23 +89,23 @@ class TfLogLevel(Enum):
     levels (verbosity) of tensorflow.
     """
 
-    all = "0"
+    ALL = "0"
     """all messages are logged (default behavior)"""
-    no_info = "1"
+    NO_INFO = "1"
     """INFO messages are not printed"""
-    no_warning = "2"
+    NO_WARNING = "2"
     """INFO and WARNING messages are not printed"""
-    no_error = "3"
+    NO_ERROR = "3"
     """INFO, WARNING, and ERROR messages are not printed"""
 
 
 def get_baseline(args) -> None:
+    """Collect baseline measurements."""
     data_collection.measure_baseline(
         data_root=args.data_directory,
         visible_devices=args.visible_devices,
         length=args.baseline_length,
     )
-    exit(0)
 
 
 def main() -> None:
@@ -121,10 +125,9 @@ def main() -> None:
     if args.baseline:
         if args.baseline_length is None:
             print("Missing argument baseline-length!")
-            exit(-1)
-        else:
-            get_baseline(args)
-        return
+            return -1
+        get_baseline(args)
+        return 0
 
     # set correct args for wrapped module
     new_args = [sys.argv[0]]
@@ -134,7 +137,7 @@ def main() -> None:
     if args.visible_devices is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.visible_devices)
 
-    tf_log_level = TfLogLevel.no_warning.value
+    tf_log_level = TfLogLevel.NO_WARNING.value
     if tf_log_level:
         os.environ["TF_CPP_MIN_LOG_LEVEL"] = tf_log_level
 
@@ -167,7 +170,8 @@ def main() -> None:
 
     # run module
     runpy.run_module(args.module_name, run_name="__main__")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

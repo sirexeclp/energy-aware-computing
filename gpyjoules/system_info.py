@@ -74,6 +74,7 @@ class SystemInfo(NamedTuple):
 
     def save(self, path: Union[str, Path]) -> None:
         """Save the information as json.
+
         Args:
             path: the filename, where to save the info to
         """

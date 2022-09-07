@@ -28,7 +28,6 @@ import tensorflow.keras as keras
 from gpyjoules.util import PowerData, predict_energy_live, calculate_total_energy
 
 
-
 def get_log_path(data_root: Union[str, Path]) -> Path:
     """Get the filename for the timestamp log.
     Creates the `data_root` if it does not yet exist.
@@ -90,7 +89,9 @@ class TimestampLogger:
             index: optional index of the event
 
         """
-        self.timestamp_log.append({"timestamp": str(datetime.now()), "event": name, "data": index})
+        self.timestamp_log.append(
+            {"timestamp": str(datetime.now()), "event": name, "data": index}
+        )
 
     def save(self):
         """Save the log as a csv file."""

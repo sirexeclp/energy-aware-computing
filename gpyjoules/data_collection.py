@@ -89,13 +89,11 @@ class ProcessTimer(abc.ABC):
 
     @abc.abstractmethod
     def _on_start(self) -> None:
-        """This function is executed in the context of the subprocess, when the timer is started.
-        """
+        """This function is executed in the context of the subprocess, when the timer is started."""
 
     @abc.abstractmethod
     def _on_stop(self) -> None:
-        """This function is executed in the context of the subprocess, when the timer is stopped.
-        """
+        """This function is executed in the context of the subprocess, when the timer is stopped."""
 
     @abc.abstractmethod
     def _on_tick(self, args: Tuple, kwargs: Dict) -> None:

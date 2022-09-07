@@ -49,6 +49,7 @@ def units_to_si_base(power_data):
 
 class Epoch(NamedTuple):
     """Represent one epoch marker."""
+
     index: int
     begin: datetime
     end: datetime
@@ -56,6 +57,7 @@ class Epoch(NamedTuple):
 
 class Batch(NamedTuple):
     """Represent one batch marker."""
+
     index: int
     begin: datetime
     end: datetime
@@ -64,6 +66,7 @@ class Batch(NamedTuple):
 # %%
 class BatchIterator:
     """BatchIterator for iterating batches."""
+
     def __init__(self, t_info):
         self.t_info = t_info
         self.index = 0
@@ -88,6 +91,7 @@ class BatchIterator:
 
 class EpochIterator:
     """EpochIterator for iterating epochs."""
+
     def __init__(self, t_info, start=0, end=None, step=1):
         self.t_info = t_info
         self.start = start
@@ -126,6 +130,7 @@ class EpochIterator:
 
 class EventType(Enum):
     """Define possible event types."""
+
     EPOCH_BEGIN = "epoch_begin"
     EPOCH_END = "epoch_end"
 
@@ -250,7 +255,7 @@ class PowerData:
 def calculate_energy(power, timestamps):
     """Calculate the integral of power [W] over time [DateTime] (energy [J])
     using a 3point difference for the timestamps
-    
+
     Power should be in Watts
     returns Energy in Joule
     """
@@ -404,7 +409,7 @@ def predict_energy_live(
 ) -> float:
     """Predict energy using selected measures and data in range
     of start_epoch to start_epoch + num_epochs.
-    
+
     :returns total_energy in Joule
     """
 

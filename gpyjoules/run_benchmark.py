@@ -22,9 +22,16 @@ def get_hostname() -> str:
     return hostname
 
 
-def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
-    """Load the experiment definition file which path is specified in
-    `platform.txt`.
+def yaml_from_path(path: Path) -> dict:
+    """Load a yaml file from the given path."""
+    with open(path, "r", encoding="UTF-8") as f:
+        return yaml.safe_load(f)
+
+
+def load_experiment_definition(
+    host_name: str,
+) -> Union[Dict[Hashable, Any], list, None]:
+    """Load the experiment definition file which path is specified in `platform.txt`.
 
     Args:
         path: a path to an experiment definition yaml-file
@@ -33,15 +40,12 @@ def load_experiment_definition() -> Union[Dict[Hashable, Any], list, None]:
         the experiment definion as a dict
 
     """
-
-    host_name = get_hostname()
     experiments = []
     for path in EXPERIMENTS_PATH.rglob("*.yml"):
-        with open(path, "rb") as stream:
-            config = yaml.safe_load(stream)
-            for experiment in config["experiments"]:
-                if experiment.get("host", None) == host_name:
-                    experiments.append(experiment)
+        config = yaml_from_path(path)
+        for experiment in config:
+            if experiment.get("host", None) == host_name:
+                experiments.append(experiment)
     return experiments
 
 
@@ -55,12 +59,7 @@ def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
         the benchmark definition as a dict
 
     """
-    with open(path) as f:
-        try:
-            benchmark = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            print(e)
-            return
+    benchmark = yaml_from_path(path)
     benchmark["benchmark_name"] = Path(path).stem
     print(benchmark)
     return benchmark
@@ -76,10 +75,7 @@ def watt2milliwatt(value: Union[int, float, None]) -> Union[int, float, None]:
         a power value measured in milliwatt
 
     """
-    if value is None:
-        return None
-    else:
-        return value * 1000
+    return value * 1000 if value is not None else None
 
 
 def run_benchmark(
@@ -94,8 +90,7 @@ def run_benchmark(
     experiment_name: str = None,
     benchmark_name: str = None,
 ) -> None:
-    """Run a benchmark once on a given device, with the given constraints, while collecting
-    power-data.
+    """Run a benchmark on a given device, with the given constraints, while collecting power-data.
 
     Args:
         device_index: the index of the gpu device to run the benchmark on
@@ -234,10 +229,11 @@ def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length
 
 BASELINE_LENGTH = 60
 
+
 def main():
     """The main function."""
     benchmarks_dir = "benchmarks"
-    experiments = load_experiment_definition()
+    experiments = load_experiment_definition(get_hostname())
     experiments = experiments.get("experiments", [experiments])
 
     benchmarks = []

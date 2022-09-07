@@ -175,7 +175,7 @@ def randomly(seq: Sequence) -> List:
     return shuffled
 
 
-def prepare_configs(exp_config: Dict, bench_config: Dict, repetition: int, benchmark_name: str) -> Dict:
+def prepare_configs(exp_config: Dict, bench_config: Dict, repetition: int) -> Dict:
     """Merge experiment and benchmark config and prepare for
     passing to `run_benchmark` function.
 

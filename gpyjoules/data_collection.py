@@ -332,17 +332,17 @@ class SlowCollector(Collector):
         super(SlowCollector, self).__init__(device_id, interval, path, args, kwargs)
         self.data_functions = {
             "timestamp": lambda: str(datetime.now()),
-            "util": self.device.get_utilization_rates,
+            "util": lambda: self.device.get_utilization_rates,
             "clock-mem": lambda: self.device.get_clock(ClockType.MEM, ClockId.CURRENT),
             "clock-gpu": lambda: self.device.get_clock(ClockType.SM, ClockId.CURRENT),
             "app-clock-mem": lambda: self.device.get_applications_clock(ClockType.MEM),
             "app-clock-gpu": lambda: self.device.get_applications_clock(ClockType.SM),
-            "enforced-power-limit": self.device.get_enforced_power_limit,
-            "total-energy": self.device.get_total_energy_consumption
+            "enforced-power-limit": lambda: self.device.get_enforced_power_limit,
+            "total-energy": lambda: self.device.get_total_energy_consumption
             # int representation to save on storage size
             ,
             "power-state": lambda: self.device.get_power_state().value,
-            "power": self.device.get_power_usage,
+            "power": lambda: self.device.get_power_usage,
             "tmp": lambda: self.device.get_temperature(
                 TemperatureSensors.TEMPERATURE_GPU
             ),

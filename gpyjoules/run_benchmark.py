@@ -1,6 +1,7 @@
 """This module is the main entry point to run the benchmarks."""
 import os
 import random
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -12,14 +13,6 @@ from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
 from .system_info import SystemInfo
 
 EXPERIMENTS_PATH = Path("experiments")
-
-
-def get_hostname() -> str:
-    """Return the hostname."""
-    hostname = os.environ.get("HOST")
-    if hostname is None:
-        hostname = os.environ.get("HOSTNAME")
-    return hostname
 
 
 def yaml_from_path(path: Path) -> dict:
@@ -234,7 +227,7 @@ BASELINE_LENGTH = 60
 def main():
     """The main function."""
     benchmarks_dir = "benchmarks"
-    hostname = get_hostname()
+    hostname = socket.gethostname()
     experiments = load_experiment_definition(hostname)
     print(hostname)
 

@@ -140,7 +140,7 @@ def run_benchmark(
             args = [
                 "python3",
                 "-m",
-                "gpyjoules.g_py_joules",
+                "gpyjoules.gpyjoules",
                 "-d",
                 str(data_path.absolute()),  # "-e",
                 "-v",
@@ -175,7 +175,7 @@ def randomly(seq: Sequence) -> List:
     return shuffled
 
 
-def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
+def prepare_configs(exp_config: Dict, bench_config: Dict, repetition: int, benchmark_name: str) -> Dict:
     """Merge experiment and benchmark config and prepare for
     passing to `run_benchmark` function.
 
@@ -194,7 +194,6 @@ def prepare_configs(exp_config: Dict, bench_config: Dict) -> Dict:
     del config["benchmarks"]
     del config["repeat"]
     config["repetition"] = repetition
-    config["benchmark_name"] = benchmark_name
     config["device_index"] = int(
         os.environ["NVIDIA_VISIBLE_DEVICES"]
     )  # int(config.pop("devices"))
@@ -207,7 +206,7 @@ def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length
     args = [
         "python3",
         "-m",
-        "gpyjoules.g_py_joules",
+        "gpyjoules.gpyjoules",
         "-d",
         str(data_path.absolute()),
         "-v",
@@ -242,7 +241,7 @@ def main():
         print("Getting baseline measurements ...")
         get_baseline(
             Path(experiment["data_path"]) / experiment["experiment_name"],
-            int(os.environ["NVIDIA_VISIBLE_DEVICES"]),
+            os.environ["NVIDIA_VISIBLE_DEVICES"],
             BASELINE_LENGTH,
         )
         print("Done.")
@@ -262,7 +261,7 @@ def main():
                 # iterate randomly over power limits
                 # benchmark configuration
                 for power_limit in randomly(experiment.get("power_limits", [])):
-                    config = prepare_configs(experiment, bench)
+                    config = prepare_configs(experiment, bench, repetition)
                     config["power_limit"] = power_limit
                     config["clocks"] = (None, None)
                     run_benchmark(**config)
@@ -270,7 +269,7 @@ def main():
                 # itrate randomly over clock_limits
                 # benchmark configuration
                 for clock_limits in randomly(experiment.get("clock_limits", [])):
-                    config = prepare_configs(experiment, bench)
+                    config = prepare_configs(experiment, bench, repetition)
                     config["power_limit"] = None
                     config["clocks"] = tuple(clock_limits)
                     run_benchmark(**config)

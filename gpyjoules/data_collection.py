@@ -23,7 +23,6 @@ from pynvml3 import (
     PcieUtilCounter,
     NVMLErrorNotSupported,
 )
-import pynpoint
 
 SAMPLES_INTERVAL = 1.5
 
@@ -456,6 +455,7 @@ class ExternalCollector(Collector):
 
         """
         try:
+            import pynpoint
             for dev in self.serial_devices:
                 self.handles.append(pynpoint.MCP(dev))
             return True

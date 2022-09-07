@@ -332,7 +332,7 @@ class SlowCollector(Collector):
         super(SlowCollector, self).__init__(device_id, interval, path, args, kwargs)
         self.data_functions = {
             "timestamp": lambda: str(datetime.now()),
-            "util": lambda: self.device.get_utilization_rates,
+            "util": lambda: self.device.get_utilization_rates(),
             "clock-mem": lambda: self.device.get_clock(ClockType.MEM, ClockId.CURRENT),
             "clock-gpu": lambda: self.device.get_clock(ClockType.SM, ClockId.CURRENT),
             "app-clock-mem": lambda: self.device.get_applications_clock(ClockType.MEM),

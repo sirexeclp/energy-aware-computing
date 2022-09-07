@@ -82,6 +82,7 @@ def run_benchmark(
     repetition: int,
     experiment_name: str = None,
     benchmark_name: str = None,
+    hostname: str = None,
 ) -> None:
     """Run a benchmark on a given device, with the given constraints, while collecting power-data.
 
@@ -99,7 +100,7 @@ def run_benchmark(
 
     """
 
-    data_path = Path(data_path) / experiment_name
+    data_path = Path(data_path, hostname, experiment_name)
     data_path = data_path / benchmark_name
     
     if power_limit is not None:

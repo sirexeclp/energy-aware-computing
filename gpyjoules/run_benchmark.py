@@ -108,9 +108,11 @@ def run_benchmark(
 
     data_path = Path(data_path) / experiment_name
     data_path = data_path / benchmark_name
+    
     if power_limit is not None:
         data_path = data_path / f"{power_limit}W"
-    else:
+    
+    if clocks != (None, None):
         data_path = data_path / f"{clocks[0]}MHz,{clocks[1]}MHz"
 
     data_path = data_path / f"{repetition}"
@@ -232,7 +234,11 @@ BASELINE_LENGTH = 60
 def main():
     """The main function."""
     benchmarks_dir = "benchmarks"
-    experiments = load_experiment_definition(get_hostname())
+    hostname = get_hostname()
+    experiments = load_experiment_definition(hostname)
+    print(hostname)
+
+    print(experiments)
     
     # experiment
     for experiment in experiments:

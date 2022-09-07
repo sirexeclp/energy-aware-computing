@@ -300,7 +300,7 @@ class SampleCollector(Collector):
             print(f"{self.sample_type}: OK")
             self.device = None
             return True
-        except NVMLErrorNotFound:
+        except (NVMLErrorNotFound, NVMLErrorNotSupported):
             print(f"{self.sample_type} not supported on this device!")
             self.device = None
             return False

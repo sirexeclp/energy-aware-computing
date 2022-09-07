@@ -58,22 +58,22 @@ configuration = BertConfig()  # default parameters and configuration for BERT
 save_path = "bert/bert_base_uncased/"
 
 
-
 # we load the reduced dataset, to speed up the time for one epoch
 hashes = {
     "benchmarks/x_train_small.npy": "bcb5d67d28bbca4cd553ee94576132a2129ccf19dda66c7e85cdcca6b568d50d",
     "benchmarks/y_train_small.npy": "332a3658be45edb75f93a421a3939b03926140d3cd59598864cce135fa339d77",
     "benchmarks/x_eval_small.npy": "f042d94a01c7554d50011fdf9189b5ac7c27b7a3b1ca7dccc2148cf8bf1232c9",
-    "benchmarks/y_eval_small.npy": "707dafe3f3cffca320e3065bb1a538f691d1bdfbc91fff2540a4b97fcf9c5ded"
+    "benchmarks/y_eval_small.npy": "707dafe3f3cffca320e3065bb1a538f691d1bdfbc91fff2540a4b97fcf9c5ded",
 }
 
 
 def sha256sum(filename):
     import hashlib
-    h  = hashlib.sha256()
-    b  = bytearray(128*1024)
+
+    h = hashlib.sha256()
+    b = bytearray(128 * 1024)
     mv = memoryview(b)
-    with open(filename, 'rb', buffering=0) as f:
+    with open(filename, "rb", buffering=0) as f:
         for n in iter(lambda: f.readinto(mv), 0):
             h.update(mv[:n])
     return h.hexdigest()
@@ -219,5 +219,5 @@ model.fit(
     epochs=3,  # For demonstration, 3 epochs are recommended
     verbose=1,
     batch_size=8,
-   # callbacks=[exact_match_callback],
+    # callbacks=[exact_match_callback],
 )

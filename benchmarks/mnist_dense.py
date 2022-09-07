@@ -13,6 +13,7 @@ from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 from tensorflow.keras import backend as K
 import numpy as np
+
 # from pathlib import  Path
 # import sys
 # import argparse
@@ -94,11 +95,12 @@ import numpy as np
 # # print('Test loss:', score[0])
 # # print('Test accuracy:', score[1])
 from tensorflow.python.keras import Input
-#print(keras.__version__)
+
+# print(keras.__version__)
 
 batch_size = 128
 num_classes = 10
-epochs = 5 # 12
+epochs = 5  # 12
 
 # input image dimensions
 img_rows, img_cols = 28, 28
@@ -106,7 +108,7 @@ img_rows, img_cols = 28, 28
 # the data, split between train and test sets
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-if K.image_data_format() == 'channels_first':
+if K.image_data_format() == "channels_first":
     x_train = x_train.reshape(x_train.shape[0], 1, img_rows, img_cols)
     x_test = x_test.reshape(x_test.shape[0], 1, img_rows, img_cols)
     input_shape = (1, img_rows, img_cols)
@@ -115,8 +117,8 @@ else:
     x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 1)
     input_shape = (img_rows, img_cols, 1)
 
-x_train = x_train.astype('float32')
-x_test = x_test.astype('float32')
+x_train = x_train.astype("float32")
+x_test = x_test.astype("float32")
 x_train /= 255
 x_test /= 255
 
@@ -139,25 +141,27 @@ model = Sequential()
 model.add(Input(shape=input_shape))
 model.add(Flatten())
 
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
-model.add(Dense(2048, activation='relu'))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
+model.add(Dense(2048, activation="relu"))
 
 
 model.add(Dropout(0.5))
-model.add(Dense(num_classes, activation='softmax'))
+model.add(Dense(num_classes, activation="softmax"))
 
 
-model.compile(loss=keras.losses.categorical_crossentropy,
-              optimizer=keras.optimizers.Adadelta(),
-              metrics=['accuracy'])
+model.compile(
+    loss=keras.losses.categorical_crossentropy,
+    optimizer=keras.optimizers.Adadelta(),
+    metrics=["accuracy"],
+)
 
 # flops = []
 # data_size = np.product(input_shape) * batch_size
@@ -173,11 +177,14 @@ model.compile(loss=keras.losses.categorical_crossentropy,
 # print("Energy", (np.sum(flops) * 1.873243) / 1_000_000_000)
 
 
-model.fit(x_train, y_train,
-          batch_size=batch_size,
-          epochs=epochs,
-          verbose=1,
-          validation_data=(x_test, y_test))
+model.fit(
+    x_train,
+    y_train,
+    batch_size=batch_size,
+    epochs=epochs,
+    verbose=1,
+    validation_data=(x_test, y_test),
+)
 score = model.evaluate(x_test, y_test, verbose=0)
-#print('Test loss:', score[0])
-#print('Test accuracy:', score[1])
+# print('Test loss:', score[0])
+# print('Test accuracy:', score[1])

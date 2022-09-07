@@ -62,7 +62,7 @@ if not os.path.exists(save_path):
 slow_tokenizer.save_pretrained(save_path)
 
 # Load the fast tokenizer from saved file
-tokenizer = BertWordPieceTokenizer(save_path+"vocab.txt", lowercase=True)
+tokenizer = BertWordPieceTokenizer(save_path + "vocab.txt", lowercase=True)
 
 """
 ## Load the data
@@ -219,7 +219,7 @@ with open("benchmarks/bert_data.pkl", "wb") as f:
 
 
 def subset(data, fraction=0.001):
-    return [x[:int(len(x)*fraction)] for x in data]
+    return [x[: int(len(x) * fraction)] for x in data]
 
 
 x_train_small = subset(x_train)
@@ -228,7 +228,7 @@ y_train_small = subset(y_train)
 x_eval_small = subset(x_eval)
 y_eval_small = subset(y_eval)
 
-#with open("benchmarks/bert_data_extra_small.pkl", "wb") as f:
+# with open("benchmarks/bert_data_extra_small.pkl", "wb") as f:
 #    pickle.dump([x_train_small, y_train_small, x_eval_small, y_eval_small], f)
 
 np.save("benchmarks/x_train_small.npy", x_train_small)

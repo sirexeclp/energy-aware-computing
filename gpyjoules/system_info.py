@@ -1,4 +1,5 @@
 """This module collects system info at the beginning of each experiment."""
+from dataclasses import dataclass
 import json
 import platform
 import sys
@@ -9,8 +10,8 @@ import distro
 import pkg_resources
 from pynvml3 import Device
 
-
-class SystemInfo(NamedTuple):
+@dataclass
+class SystemInfo:
     """Dataclass with System Information."""
 
     device_name: str

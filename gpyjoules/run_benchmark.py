@@ -234,9 +234,7 @@ def main():
     """The main function."""
     benchmarks_dir = "benchmarks"
     experiments = load_experiment_definition(get_hostname())
-    experiments = experiments.get("experiments", [experiments])
-
-    benchmarks = []
+    
     # experiment
     for experiment in experiments:
         print(f"Experiment: {experiment['experiment_name']}")
@@ -248,6 +246,7 @@ def main():
             BASELINE_LENGTH,
         )
         print("Done.")
+        benchmarks = []
 
         for bench in experiment["benchmarks"]:
             path = Path(benchmarks_dir) / bench
@@ -259,7 +258,7 @@ def main():
         for repetition in range(reps):
             print(f"Repetition {repetition}/{reps}")
             # benchmark
-            for benchmark_name, bench in zip(experiment["benchmarks"], benchmarks):
+            for bench in benchmarks:
                 # iterate randomly over power limits
                 # benchmark configuration
                 for power_limit in randomly(experiment.get("power_limits", [])):

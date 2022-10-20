@@ -21,7 +21,7 @@ def yaml_from_path(path: Path) -> dict:
         return yaml.safe_load(f)
 
 
-def load_experiment_definition(
+def load_experiments_by_hostname(
     host_name: str,
 ) -> Union[Dict[Hashable, Any], list, None]:
     """Load the experiment definition file which path is specified in `platform.txt`.
@@ -40,6 +40,22 @@ def load_experiment_definition(
             if experiment.get("host", None) == host_name:
                 experiments.append(experiment)
     return experiments
+
+
+def load_experiments_by_path(
+    path: str,
+) -> Union[Dict[Hashable, Any], list, None]:
+    """Load the experiment definition file which path is specified in `platform.txt`.
+
+    Args:
+        path: a path to an experiment definition yaml-file
+
+    Returns:
+        the experiment definion as a dict
+
+    """
+    config = yaml_from_path(path)
+    return config
 
 
 def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
@@ -229,7 +245,7 @@ def main():
     """The main function."""
     benchmarks_dir = "benchmarks"
     hostname = socket.gethostname()
-    experiments = load_experiment_definition(hostname)
+    experiments = load_experiments_by_path(hostname)
     print(hostname)
 
     print(experiments)

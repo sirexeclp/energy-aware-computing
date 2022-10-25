@@ -1,0 +1,4 @@
+---
+  working_directory: ./
+  module: benchmarks.mnist_cnn_dataset
+  args: []#["-c", "2", "-n", "512", "-b", "128"]

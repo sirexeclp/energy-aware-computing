@@ -1,4 +1,5 @@
 """This module is the main entry point to run the benchmarks."""
+import argparse
 import os
 import random
 import socket
@@ -13,6 +14,26 @@ from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
 from .system_info import SystemInfo
 
 EXPERIMENTS_PATH = Path("experiments")
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-h",
+        "--hostname",
+        default=False,
+        help="If invoked, automatically collect and execute all available benchmarks based on the current hostname."
+    )
+
+    parser.add_argument(
+        "-p",
+        "--experiment-path",
+        type=str,
+        help="Provide a path to a specific experiment configuration."
+    )
+
+    return parser.parse_args()
+    
 
 
 def yaml_from_path(path: Path) -> dict:
@@ -243,12 +264,15 @@ BASELINE_LENGTH = 60
 
 def main():
     """The main function."""
-    benchmarks_dir = "benchmarks"
-    hostname = socket.gethostname()
-    experiments = load_experiments_by_path(hostname)
-    print(hostname)
 
-    print(experiments)
+    args = parse_args()
+
+    if(args.hostname):
+        benchmarks_dir = "benchmarks"
+        hostname = socket.gethostname()
+        experiments = load_experiments_by_path(hostname)
+    else:
+        experiments = load_experiments_by_path(args.path)
     
     # experiment
     for experiment in experiments:

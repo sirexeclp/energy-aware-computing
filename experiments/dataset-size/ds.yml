@@ -2,10 +2,6 @@
   - experiment_name: "dataset-size"
     host: local
     repeat: 1
-    power_limits:
-      - null
-    clock_limits:
-      - [null, null]
     data_path: /tmp/data-test
     benchmarks:
       - dataset-size/mnist-cnn-dataset-6000

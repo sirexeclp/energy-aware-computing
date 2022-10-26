@@ -19,9 +19,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-h",
+        "-hn",
         "--hostname",
-        default=False,
+        action="store_true",
         help="If invoked, automatically collect and execute all available benchmarks based on the current hostname."
     )
 
@@ -119,7 +119,7 @@ def run_benchmark(
     repetition: int,
     experiment_name: str = None,
     benchmark_name: str = None,
-    hostname: str = None,
+    host: str = None,
 ) -> None:
     """Run a benchmark on a given device, with the given constraints, while collecting power-data.
 
@@ -137,7 +137,7 @@ def run_benchmark(
 
     """
 
-    data_path = Path(data_path, hostname, experiment_name)
+    data_path = Path(data_path, host, experiment_name)
     data_path = data_path / benchmark_name
     
     if power_limit is not None:
@@ -264,15 +264,15 @@ BASELINE_LENGTH = 60
 
 def main():
     """The main function."""
-
     args = parse_args()
+    benchmarks_dir = "benchmarks"
+    hostname = socket.gethostname()
+    os.environ["NVIDIA_VISIBLE_DEVICES"] = "0"
 
     if(args.hostname):
-        benchmarks_dir = "benchmarks"
-        hostname = socket.gethostname()
-        experiments = load_experiments_by_path(hostname)
+        experiments = load_experiments_by_hostname(hostname)
     else:
-        experiments = load_experiments_by_path(args.path)
+        experiments = load_experiments_by_path(args.experiment_path)
     
     # experiment
     for experiment in experiments:

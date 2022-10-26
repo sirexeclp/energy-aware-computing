@@ -11,7 +11,7 @@ import pkg_resources
 from pynvml3 import Device
 
 @dataclass
-class SystemInfo:
+class SystemInfo(dict):
     """Dataclass with System Information."""
 
     device_name: str

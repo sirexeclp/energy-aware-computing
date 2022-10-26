@@ -1,9 +1,13 @@
 ---
   - experiment_name: "dataset-size"
-    host: gpunode-01
+    host: local
     repeat: 1
-    clock_limits:
+    power_limits:
       - null
+    clock_limits:
+      - [null, null]
     data_path: /tmp/data-test
     benchmarks:
-      - mnist-cnn-dataset
+      - dataset-size/mnist-cnn-dataset-6000
+      - dataset-size/mnist-cnn-dataset-30000
+      - dataset-size/mnist-cnn-dataset-60000

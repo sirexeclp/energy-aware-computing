@@ -24,7 +24,7 @@ import tensorflow as tf
 
 batch_size = 128
 num_classes = 10
-epochs = 12
+epochs = 1
 
 parser = argparse.ArgumentParser(description='Provide amount of training data to be used')
 parser.add_argument('train_data_amount', type=int, metavar='N', help='specify amount of training data to be used, in N percent of total training data', default=100)

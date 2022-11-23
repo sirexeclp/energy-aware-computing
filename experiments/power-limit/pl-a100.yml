@@ -4,7 +4,7 @@
     host: gpunode-01
     power_limits:
       - null
-    data_path: /tmp/data-test
+    data_path: tmp/data-test
     benchmarks:
       - mnist-cnn
       - mnist-dense

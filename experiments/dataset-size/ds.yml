@@ -2,7 +2,7 @@
   - experiment_name: "dataset-size"
     host: local
     repeat: 1
-    data_path: /tmp/data-test
+    data_path: tmp/data-test
     benchmarks:
       - dataset-size/mnist-cnn-dataset-6000
       - dataset-size/mnist-cnn-dataset-30000

@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import random
+import shutil
 import socket
 import subprocess
 import time
@@ -138,7 +139,7 @@ def run_benchmark(
 
     """
 
-    data_path = Path(data_path, host, experiment_name)
+    data_path = Path(Path.home(), data_path, experiment_name)
     data_path = data_path / benchmark_name
     
     if power_limit is not None:
@@ -166,7 +167,7 @@ def run_benchmark(
         )
 
         clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
-        print(power_limit)
+        # print(power_limit)
         with limit, clocks:
 
             SystemInfo.gather(device).save(data_path / "system_info.json")
@@ -176,7 +177,7 @@ def run_benchmark(
                 "-m",
                 "gpyjoules.gpyjoules",
                 "-d",
-                str(data_path.absolute()),  # "-e",
+                str(data_path),  # "-e",
                 "-v",
                 str(device_index),
                 "-w",
@@ -235,7 +236,8 @@ def prepare_configs(exp_config: Dict, bench_config: Dict, repetition: int) -> Di
 
 
 def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length: int):
-    data_path = Path(data_path) / "_baseline"
+    data_path = Path(Path.home(), data_path, "_baseline")
+    # data_path = Path(data_path) / "_baseline"
     data_path.mkdir(exist_ok=True, parents=True)
     args = [
         "python3",
@@ -265,6 +267,8 @@ BASELINE_LENGTH = 1
 
 def main():
     """The main function."""
+    # if(os.path.exists(Path.home() / "tmp/data-test")):
+    #     shutil.rmtree(Path.home() / "tmp/data-test")
     args = parse_args()
     benchmarks_dir = "benchmarks"
     hostname = socket.gethostname()
@@ -303,7 +307,7 @@ def main():
         print("---------------------------------------------------------------------------------------")
         print("Getting baseline measurements ...")
         get_baseline(
-            Path(experiment["data_path"]) / experiment["experiment_name"],
+            Path(experiment["data_path"], experiment["experiment_name"]),
             os.environ["NVIDIA_VISIBLE_DEVICES"],
             BASELINE_LENGTH,
         )
@@ -339,6 +343,7 @@ def main():
                     config = prepare_configs(experiment, bench, repetition)
                     config["power_limit"] = None
                     config["clocks"] = (None, None)
+                    json.dumps(config)
                     run_benchmark(**config)
                 
 

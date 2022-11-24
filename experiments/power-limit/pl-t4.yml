@@ -1,17 +1,16 @@
----
-  - experiment_name: "power-limit"
-    repeat: 5
-    power_limits:
-      - 60
-      - 65
-      - 70
-    data_path: /tmp/data-test
-    benchmarks:
-      - mnist-cnn
-      - mnist-dense
-      - resnet
-      - bert
-      - nbody
+experiment_name: "power-limit"
+repeat: 5
+power_limits:
+  - 60
+  - 65
+  - 70
+data_path: tmp/data-test
+benchmarks:
+  - mnist-cnn
+  - mnist-dense
+  - resnet
+  - bert
+  - nbody
 #  - experiment_name: "clock-limit"
 #    repeat: 5
 #    clock_limits:

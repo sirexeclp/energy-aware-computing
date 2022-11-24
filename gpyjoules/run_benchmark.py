@@ -19,18 +19,23 @@ EXPERIMENTS_PATH = Path("experiments")
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group(required=True)
+    # path_parser = parser.add_mutually_exclusive_group()
 
-    parser.add_argument(
-        "-hn",
+    group.add_argument(
+        "-host",
         "--hostname",
         action="store_true",
+        dest="hostname",
         help="If invoked, automatically collect and execute all available benchmarks based on the current hostname."
     )
 
-    parser.add_argument(
+    group.add_argument(
         "-p",
-        "--experiment-path",
-        type=str,
+        "--path",
+        dest="path",
+        action="store",
+        nargs="+",
         help="Provide a path to a specific experiment configuration."
     )
 
@@ -59,14 +64,14 @@ def load_experiments_by_hostname(
     experiments = []
     for path in EXPERIMENTS_PATH.rglob("*.yml"):
         config = yaml_from_path(path)
-        for experiment in config:
-            if experiment.get("host", None) == host_name:
-                experiments.append(experiment)
+        print(config)
+        if config.get("host", None) == host_name:
+            experiments.append(config)
     return experiments
 
 
-def load_experiments_by_path(
-    path: str,
+def load_experiments_by_paths(
+    paths: str,
 ) -> Union[Dict[Hashable, Any], list, None]:
     """Load the experiment definition file which path is specified in `platform.txt`.
 
@@ -77,8 +82,11 @@ def load_experiments_by_path(
         the experiment definion as a dict
 
     """
-    config = yaml_from_path(path)
-    return config
+    experiments = []
+    for path in paths:
+        config = yaml_from_path(path)
+        experiments.append(config)
+    return experiments
 
 
 def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
@@ -270,18 +278,20 @@ def main():
     # if(os.path.exists(Path.home() / "tmp/data-test")):
     #     shutil.rmtree(Path.home() / "tmp/data-test")
     args = parse_args()
+    # begin(args)
     benchmarks_dir = "benchmarks"
-    hostname = socket.gethostname()
     os.environ["NVIDIA_VISIBLE_DEVICES"] = "0"
 
     print("Collecting Experiments...")
 
     if(args.hostname):
+        hostname = socket.gethostname()
         experiments = load_experiments_by_hostname(hostname)
     else:
-        experiments = load_experiments_by_path(args.experiment_path)
+        experiments = load_experiments_by_paths(args.path)
 
     print("Collected following experiments:")
+    print(experiments)
     for experiment in experiments:
         print(f"Experiment: {experiment['experiment_name']}")
         # print(json.dumps(experiment, indent=2))

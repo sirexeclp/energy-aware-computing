@@ -1,13 +1,12 @@
----
-  - experiment_name: "power-limit"
-    repeat: 2
-    host: gpunode-01
-    power_limits:
-      - null
-    data_path: tmp/data-test
-    benchmarks:
-      - mnist-cnn
-      - mnist-dense
-      - resnet
-      - bert
-      - nbody
+experiment_name: "power-limit"
+repeat: 2
+host: gpunode-01
+power_limits:
+  - null
+data_path: tmp/data-test
+benchmarks:
+  - mnist-cnn
+  - mnist-dense
+  - resnet
+  - bert
+  - nbody

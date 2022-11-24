@@ -1,19 +1,18 @@
----
-  - experiment_name: "power-limit"
-    repeat: 10
-    host: gpu-dgx-01
-    power_limits:
-      - 150
-      - 200
-      - 250
-      - 300
-    data_path: /tmp/data-test
-    benchmarks:
-      - mnist-cnn
-      - mnist-dense
-      - resnet
-      - bert
-      - nbody
+experiment_name: "power-limit"
+repeat: 10
+host: gpu-dgx-01
+power_limits:
+  - 150
+  - 200
+  - 250
+  - 300
+data_path: tmp/data-test
+benchmarks:
+  - mnist-cnn
+  - mnist-dense
+  - resnet
+  - bert
+  - nbody
 #  - experiment_name: "clock-limit"
 #    repeat: 5
 #    clock_limits:

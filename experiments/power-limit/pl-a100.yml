@@ -1,8 +1,10 @@
-experiment_name: "power-limit"
-repeat: 2
+name: "pl-a100"
+repetitions: 2
 host: gpunode-01
 power_limits:
   - null
+clock_limits:
+  - [ 2505, 562 ]
 data_path: tmp/data-test
 benchmarks:
   - mnist-cnn

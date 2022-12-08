@@ -1,6 +1,7 @@
 """This module is the main entry point to run the benchmarks."""
 import argparse
 import json
+import logging as log
 import os
 import random
 import shutil
@@ -9,6 +10,7 @@ import subprocess
 import time
 from pathlib import Path
 from typing import List, Tuple, Dict, Union, Any, Hashable, Sequence, Optional
+from gpyjoules.Experiment import Experiment
 
 import yaml
 from pynvml3 import NVMLLib, PowerLimit, ApplicationClockLimit
@@ -47,46 +49,6 @@ def yaml_from_path(path: Path) -> dict:
     """Load a yaml file from the given path."""
     with open(path, "r", encoding="UTF-8") as f:
         return yaml.safe_load(f)
-
-
-def load_experiments_by_hostname(
-    host_name: str,
-) -> Union[Dict[Hashable, Any], list, None]:
-    """Load the experiment definition file which path is specified in `platform.txt`.
-
-    Args:
-        path: a path to an experiment definition yaml-file
-
-    Returns:
-        the experiment definion as a dict
-
-    """
-    experiments = []
-    for path in EXPERIMENTS_PATH.rglob("*.yml"):
-        config = yaml_from_path(path)
-        print(config)
-        if config.get("host", None) == host_name:
-            experiments.append(config)
-    return experiments
-
-
-def load_experiments_by_paths(
-    paths: str,
-) -> Union[Dict[Hashable, Any], list, None]:
-    """Load the experiment definition file which path is specified in `platform.txt`.
-
-    Args:
-        path: a path to an experiment definition yaml-file
-
-    Returns:
-        the experiment definion as a dict
-
-    """
-    experiments = []
-    for path in paths:
-        config = yaml_from_path(path)
-        experiments.append(config)
-    return experiments
 
 
 def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
@@ -173,6 +135,8 @@ def run_benchmark(
         limit = PowerLimit(
             device, watt2milliwatt(power_limit), set_default=True, check=True
         )
+
+        print(*clocks)
 
         clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
         # print(power_limit)
@@ -270,80 +234,125 @@ def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length
         raise e
 
 
-BASELINE_LENGTH = 1
+def collect_experiments(args):
+    hostname = socket.gethostname()
+    experiments = []
+    if(args.hostname):
+        paths = EXPERIMENTS_PATH.rglob("*.yml")
+        for path in paths:
+            config = yaml_from_path(path)
+            if config.get("host", None) == hostname:
+                print(config)
+                e = Experiment(**config)
+                experiments.append(e)
+    else:
+        paths = args.path
+        for path in paths:
+            if not os.path.isfile(path):
+                log.error(f"File {path} does not exist")
+            else:
+                config = yaml_from_path(path)
+                print(config)
+                e = Experiment(**config)
+                experiments.append(e)
+    return experiments
+
+
+def run_experiment(e: Experiment, device_index):
+    # print("Getting baseline measurements ...")
+    # baseline_args = e.get_baseline_args(device_index)
+    # run_measurement(baseline_args)
+    # print("Baseline measurements Done.")
+    for rep in range(e.repetitions):
+        # iterate randomly through power/clock limits and pass on
+        for bench in e.benchmarks:
+            benchmark_args = e.get_benchmark_args(bench, rep, device_index)
+            print(e.clock_limits, e.power_limits)
+            with NVMLLib() as lib:
+                # get device
+                device = lib.device.from_index(device_index)
+
+                # set constraints
+                # reset power-limit to default value, when we are done and check if it was set successfully
+                # convert watts to milliwatts
+                limit = PowerLimit(
+                    device, watt2milliwatt(e.power_limits[0]), set_default=True, check=True
+                )
+                clocks = ApplicationClockLimit(device, tuple(e.clock_limits[0]), set_default=True, check=True)
+                with limit, clocks:
+                    run_measurement(benchmark_args)
+
+
+def run_measurement(args):
+    command = [
+        "python3",
+        "-m",
+        "gpyjoules.gpyjoules",
+    ]
+    command += args
+    try:
+        p = subprocess.Popen(command)
+        while p.poll() is None:
+            time.sleep(1)
+    except Exception as e:
+        p.kill()
+        raise e
+
+BASELINE_LENGTH = 60
 
 
 def main():
     """The main function."""
     # if(os.path.exists(Path.home() / "tmp/data-test")):
     #     shutil.rmtree(Path.home() / "tmp/data-test")
-    args = parse_args()
-    # begin(args)
-    benchmarks_dir = "benchmarks"
     os.environ["NVIDIA_VISIBLE_DEVICES"] = "0"
-
+    args = parse_args()
+    
     print("Collecting Experiments...")
-
-    if(args.hostname):
-        hostname = socket.gethostname()
-        experiments = load_experiments_by_hostname(hostname)
-    else:
-        experiments = load_experiments_by_paths(args.path)
+    experiments = collect_experiments(args)
 
     print("Collected following experiments:")
-    print(experiments)
     for experiment in experiments:
-        print(f"Experiment: {experiment['experiment_name']}")
-        # print(json.dumps(experiment, indent=2))
+        print(f" - {experiment.name}")
 
     # experiment
     for i in range(len(experiments)):
-        print("---------------------------------------------------------------------------------------")
-        print(f"Starting Experiment {i}/{len(experiments)}: {experiments[i]['experiment_name']}")
-        print("Details:")
-        print(json.dumps(experiment, indent=2))
+        print(80*"-")
+        print(f"Starting Experiment {i+1}/{len(experiments)}: {experiments[i].name}")
+        # print("Details:")
+        # print(json.dumps(vars(experiment), indent=2))
 
-        print("---------------------------------------------------------------------------------------")
+        print(80*"-")
         print("Collecting Benchmarks...")
-        
-        benchmarks = []
-        for bench in experiment["benchmarks"]:
-            path = Path(benchmarks_dir) / bench
-            path = path.with_suffix(".yaml")
-            benchmarks.append(load_benchmark_definition(path))
-    
+        experiments[i].collect_benchmarks()
         print("Benchmarks collected")
         
-        print("---------------------------------------------------------------------------------------")
-        print("Getting baseline measurements ...")
-        get_baseline(
-            Path(experiment["data_path"], experiment["experiment_name"]),
-            os.environ["NVIDIA_VISIBLE_DEVICES"],
-            BASELINE_LENGTH,
-        )
-        print("Baseline measurements Done.")
+        print(80*"-")
+        # run_experiment(experiments[i], int(os.environ["NVIDIA_VISIBLE_DEVICES"]))
         
-        reps = experiment.get("repeat", 1)
+        reps = experiments[i].repetitions
         # benchmark repetition
         for repetition in range(reps):
             print("---------------------------------------------------------------------------------------")
-            print(f"Starting Repetition {repetition}/{reps} of Experiment {experiments[i]['experiment_name']}")
+            print(f"Starting Repetition {repetition+1}/{reps} of Experiment {experiments[i].name}")
             # benchmark
-            for bench in benchmarks:
+            for bench in experiments[i].benchmarks:
                 print("---------------------------------------------------------------------------------------")
-                print("Benchmark Details:")
-                print(json.dumps(bench, indent=2))
+                # print("Benchmark Details:")
+                # print(json.dumps(bench, indent=2))
 
-                if 'power_limits' in experiments[i].keys():
+#                if 'power_limits' in experiments[i].keys():
+                if experiments[i].power_limits:
                     print("Iterating through power limits")
-                    for power_limit in randomly(experiment.get("power_limits", [])):
+                    for power_limit in randomly(experiments[i].power_limits):
                         config = prepare_configs(experiment, bench, repetition)
                         config["power_limit"] = power_limit
                         config["clocks"] = (None, None)
                         run_benchmark(**config)
-                elif 'clock_limits' in experiments[i].keys():
+                elif experiments[i].clock_limits:
+#                 elif 'clock_limits' in experiments[i].keys():
                     print("Iterating through clock limits")
-                    for clock_limits in randomly(experiment.get("clock_limits", [])):
+                    for clock_limits in randomly(experiments[i].clock_limits):
                         config = prepare_configs(experiment, bench, repetition)
                         config["power_limit"] = None
                         config["clocks"] = tuple(clock_limits)

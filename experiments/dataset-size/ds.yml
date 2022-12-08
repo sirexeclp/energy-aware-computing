@@ -1,6 +1,6 @@
-experiment_name: "dataset-size"
+name: "dataset-size"
 host: gpunode-01
-repeat: 1
+repetitions: 1
 data_path: tmp/data-test
 benchmarks:
   - dataset-size/mnist-cnn-dataset-6000

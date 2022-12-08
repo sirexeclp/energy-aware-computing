@@ -4,7 +4,7 @@ host: gpunode-01
 power_limits:
   - null
 clock_limits:
-  - [ 2505, 562 ]
+  - [ null, null ]
 data_path: tmp/data-test
 benchmarks:
   - mnist-cnn

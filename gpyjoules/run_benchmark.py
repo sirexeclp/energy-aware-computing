@@ -44,27 +44,10 @@ def parse_args():
     return parser.parse_args()
     
 
-
 def yaml_from_path(path: Path) -> dict:
     """Load a yaml file from the given path."""
     with open(path, "r", encoding="UTF-8") as f:
         return yaml.safe_load(f)
-
-
-def load_benchmark_definition(path: Union[Path, str]) -> Dict[Hashable, Any]:
-    """Load the benchmark definition yaml-file from the given path.
-
-    Args:
-        path: a path to a benchmark definition yaml-file
-
-    Returns:
-        the benchmark definition as a dict
-
-    """
-    benchmark = yaml_from_path(path)
-    benchmark["benchmark_name"] = Path(path).stem
-    # print(benchmark)
-    return benchmark
 
 
 def watt2milliwatt(value: Union[int, float, None]) -> Union[int, float, None]:
@@ -78,93 +61,6 @@ def watt2milliwatt(value: Union[int, float, None]) -> Union[int, float, None]:
 
     """
     return value * 1000 if value is not None else None
-
-
-def run_benchmark(
-    device_index: int,
-    data_path: str,
-    working_directory: str,
-    module: str,
-    args: List[str],
-    power_limit: Optional[int],
-    clocks: Optional[Tuple[int, int]],
-    repetition: int,
-    experiment_name: str = None,
-    benchmark_name: str = None,
-    host: str = None,
-) -> None:
-    """Run a benchmark on a given device, with the given constraints, while collecting power-data.
-
-    Args:
-        device_index: the index of the gpu device to run the benchmark on
-        data_path: the root data path (defined in experiment.yaml)
-        working_directory: the working directory to run the benchmark in
-        module: the python module to run as a benchmark
-        args: a list of commandline arguments passed to the python module
-        power_limit: a powerlimit in Watt or None
-        clocks: a tuple of gpu memory and graphics clock limit or None
-        repetition: the index of this benchmark repetition
-        experiment_name: the name of the experiment
-        benchmark_name: the name of the benchmark
-
-    """
-
-    data_path = Path(Path.home(), data_path, experiment_name)
-    data_path = data_path / benchmark_name
-    
-    if power_limit is not None:
-        data_path = data_path / f"{power_limit}W"
-    
-    if clocks != (None, None):
-        data_path = data_path / f"{clocks[0]}MHz,{clocks[1]}MHz"
-
-    data_path = data_path / f"{repetition}"
-    if data_path.exists():
-        max_id = max([int(x.name) for x in data_path.parent.glob("*")])
-        next_id = max_id + 1
-        data_path = data_path.parent / f"{next_id}"
-    data_path.mkdir(parents=True, exist_ok=False)
-
-    with NVMLLib() as lib:
-        # get device
-        device = lib.device.from_index(device_index)
-
-        # set constraints
-        # reset power-limit to default value, when we are done and check if it was set successfully
-        # convert watts to milliwatts
-        limit = PowerLimit(
-            device, watt2milliwatt(power_limit), set_default=True, check=True
-        )
-
-        print(*clocks)
-
-        clocks = ApplicationClockLimit(device, *clocks, set_default=True, check=True)
-        # print(power_limit)
-        with limit, clocks:
-
-            SystemInfo.gather(device).save(data_path / "system_info.json")
-
-            args = [
-                "python3",
-                "-m",
-                "gpyjoules.gpyjoules",
-                "-d",
-                str(data_path),  # "-e",
-                "-v",
-                str(device_index),
-                "-w",
-                str(working_directory),
-                module,
-                "--",
-            ] + args
-            print(args)
-            try:
-                p = subprocess.Popen(args)
-                while p.poll() is None:
-                    time.sleep(1)
-            except Exception as e:
-                p.kill()
-                raise e
 
 
 def randomly(seq: Sequence) -> List:
@@ -207,33 +103,6 @@ def prepare_configs(exp_config: Dict, bench_config: Dict, repetition: int) -> Di
     return config
 
 
-def get_baseline(data_path: Union[Path, str], device_index: int, baseline_length: int):
-    data_path = Path(Path.home(), data_path, "_baseline")
-    # data_path = Path(data_path) / "_baseline"
-    data_path.mkdir(exist_ok=True, parents=True)
-    args = [
-        "python3",
-        "-m",
-        "gpyjoules.gpyjoules",
-        "-d",
-        str(data_path.absolute()),
-        "-v",
-        str(device_index),
-        "None",
-        "-b",
-        "-bl",
-        str(baseline_length),
-    ]
-    print(args)
-    try:
-        p = subprocess.Popen(args)
-        while p.poll() is None:
-            time.sleep(1)
-    except Exception as e:
-        p.kill()
-        raise e
-
-
 def collect_experiments(args):
     hostname = socket.gethostname()
     experiments = []
@@ -264,10 +133,9 @@ def run_experiment(e: Experiment, device_index):
     # run_measurement(baseline_args)
     # print("Baseline measurements Done.")
     for rep in range(e.repetitions):
-        # iterate randomly through power/clock limits and pass on
+        # TODO: iterate randomly through power/clock limits and pass on
         for bench in e.benchmarks:
             benchmark_args = e.get_benchmark_args(bench, rep, device_index)
-            print(e.clock_limits, e.power_limits)
             with NVMLLib() as lib:
                 # get device
                 device = lib.device.from_index(device_index)
@@ -278,7 +146,10 @@ def run_experiment(e: Experiment, device_index):
                 limit = PowerLimit(
                     device, watt2milliwatt(e.power_limits[0]), set_default=True, check=True
                 )
-                clocks = ApplicationClockLimit(device, tuple(e.clock_limits[0]), set_default=True, check=True)
+
+                # print(e.power_limits[0])
+                # print(*tuple(e.clock_limits[0]))
+                clocks = ApplicationClockLimit(device, *tuple(e.clock_limits[0]), set_default=True, check=True)
                 with limit, clocks:
                     run_measurement(benchmark_args)
 
@@ -328,8 +199,8 @@ def main():
         print("Benchmarks collected")
         
         print(80*"-")
-        # run_experiment(experiments[i], int(os.environ["NVIDIA_VISIBLE_DEVICES"]))
-        
+        run_experiment(experiments[i], int(os.environ["NVIDIA_VISIBLE_DEVICES"]))
+        return
         reps = experiments[i].repetitions
         # benchmark repetition
         for repetition in range(reps):
